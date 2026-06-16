@@ -10,9 +10,9 @@ are expected to read the `tests/simple/testdata` files as inputs to the
 parse, check, and evaluation behaviors of a given implementation. Reference
 implementations may be found in the following locations:
 
-* (cel-go conformance)[https://github.com/google/cel-go/tree/master/conformance]
-* (cel-cpp conformance)[https://github.com/google/cel-cpp/tree/master/conformance]
-* (cel-java conformance)[https://github.com/google/cel-java/tree/main/conformance/src/test/java/dev/cel/conformance]
+* [cel-go conformance](https://github.com/cel-expr/cel-go/tree/master/conformance)
+* [cel-cpp conformance](https://github.com/cel-expr/cel-cpp/tree/master/conformance)
+* [cel-java conformance](https://github.com/cel-expr/cel-java/tree/main/conformance/src/test/java/dev/cel/conformance)
 
 Each CEL implementation should also have its own unit tests and benchmarks
 for testing subcomponents, its API, and other implementation-dependent
