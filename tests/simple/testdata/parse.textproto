@@ -281,7 +281,7 @@ section {
     value: { string_value: " \r " }
   }
 
-  # See https://github.com/google/cel-spec/issues/490
+  # See https://github.com/cel-expr/cel-spec/issues/490
   # test {
   #   name: "triple_single_quoted_unescaped_carriage_return"
   #   expr: "''' \r '''"
@@ -315,7 +315,7 @@ section {
     value: { string_value: " \r\n " }
   }
 
-  # See https://github.com/google/cel-spec/issues/490
+  # See https://github.com/cel-expr/cel-spec/issues/490
   # test {
   #   name: "triple_single_quoted_unescaped_windows_line_end"
   #   expr: "''' \r\n '''"
@@ -730,7 +730,7 @@ section {
     value: { bytes_value: " \r " }
   }
 
-  # See https://github.com/google/cel-spec/issues/490
+  # See https://github.com/cel-expr/cel-spec/issues/490
   # test {
   #   name: "triple_single_quoted_unescaped_carriage_return"
   #   expr: "b''' \r '''"
@@ -764,7 +764,7 @@ section {
     value: { bytes_value: " \r\n " }
   }
 
-  # See https://github.com/google/cel-spec/issues/490
+  # See https://github.com/cel-expr/cel-spec/issues/490
   # test {
   #   name: "triple_single_quoted_unescaped_windows_line_end"
   #   expr: "b''' \r\n '''"
