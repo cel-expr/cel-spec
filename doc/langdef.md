@@ -2068,20 +2068,35 @@ double("3.14") // 3.14 (if successful, otherwise an error)
 
 Type conversion for duration values.
 
-Note, duration strings should support the following suffixes:
+Duration strings support decimal values with the following unit suffixes:
 
-* "h" (hour)
-* "m" (minute)
-* "s" (second)
-* "ms" (millisecond)
-* "us" (microsecond)
-* "ns" (nanosecond)
-  
-Duration strings may be zero (`"0"`), negative (`-1h`), fractional (`-23.4s`),
-and/or compound (`1h34us`). Durations greater than the hour granularity, such
-as days or weeks, are not supported as this would necessitate an understanding
-of the locale of the execution context to account for leap seconds and leap
-years.
+* `h` (hour)
+* `m` (minute)
+* `s` (second)
+* `ms` (millisecond)
+* `us` or `µs` (microsecond)
+* `ns` (nanosecond)
+
+Values are concatenated with their units without a space (`1s`). Values may
+include a decimal point (`23.4s`) and can omit either the integer-part
+(`.5m`) or fractional part (`30.s`). Fractional nanoseconds (`0.9ns`) are
+silently truncated.
+
+Multiple values may be concatenated (`1h34us`) in any order (`15m30s1h`) and
+with any repetition (`1s1s1s`) to form a compound value that equals the sum of
+its parts.
+
+A zero-length duration may be represented as the unitless (`0`), but this
+cannot be concatenated with any other value.
+
+Any duration string may be prefixed with a minus sign (`-`) or an inert plus
+sign (`+`), which applies to the duration value after it is computed (in the
+case of compound values).
+
+Duration units greater than the hour granularity, such as days or weeks, are not
+supported as this would necessitate an understanding of the locale of the
+execution context to account for daylight savings time, leap seconds, and
+leap years.
 
 **Signatures:**
 
