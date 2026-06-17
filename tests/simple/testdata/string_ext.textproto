@@ -665,6 +665,20 @@ section: {
     }
   }
   test: {
+    name: "bytes support for string with invalid utf-8 sequences"
+    expr: '"%s".format([b"\\xF0abc\\x8C\\xF0xyz"])'
+    value: {
+      string_value: '\ufffdabc\ufffdxyz',
+    }
+  }
+  test: {
+    name: "bytes support for string with only invalid utf-8 sequences"
+    expr: '"%s".format([b"\\xF0\\x8C\\xF0"])'
+    value: {
+      string_value: '\ufffd',
+    }
+  }
+  test: {
     name: "type() support for string"
     expr: '"%s".format([type("test string")])'
     value: {
