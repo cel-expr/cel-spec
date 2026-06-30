@@ -10,7 +10,7 @@ section {
     name: "parse_ipv4"
     description: "Successfully parse a standard IPv4 address"
     expr: "string(ip('192.168.0.1'))"
-    value: { string_value: "192.168.0.1" }  
+    value: { string_value: "192.168.0.1" }
   }
   test {
     name: "parse_invalid_ipv4"
@@ -320,7 +320,7 @@ section {
     name: "cidr_does_not_contain_ip_ipv4_string"
     expr: "cidr('192.168.0.0/24').containsIP('192.168.1.1')"
     value: { bool_value: false }
-  }  
+  }
   test {
     name: "cidr_contains_cidr_ipv4_object"
     expr: "cidr('192.168.0.0/24').containsCIDR(cidr('192.168.0.0/25'))"
