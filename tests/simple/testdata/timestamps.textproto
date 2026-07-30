@@ -51,7 +51,538 @@ section {
     value: { bool_value: true }
   }
 }
+section {
+  name: "duration_parsing"
+  description: "Parsing duration strings."
+  test {
+    name: "nanoseconds_0"
+    expr: "duration('0ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "nanoseconds_1"
+    expr: "duration('1ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 1 }
+      }
+    }
+  }
+  test {
+    name: "nanoseconds_negative_1"
+    expr: "duration('-1ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: -1 }
+      }
+    }
+  }
+  test {
+    name: "nanoseconds_canonical_exact_positive"
+    expr: "duration('1000000000ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "nanoseconds_canonical_overflow_positive"
+    expr: "duration('1000000001ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 1 }
+      }
+    }
+  }
+  test {
+    name: "nanoseconds_canonical_exact_negative"
+    expr: "duration('-1000000000ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "nanoseconds_canonical_overflow_negative"
+    expr: "duration('-1000000001ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: -1 }
+      }
+    }
+  }
 
+  test {
+    name: "microseconds_0"
+    expr: "duration('0us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_half"
+    expr: "duration('0.5us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 500 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_1"
+    expr: "duration('1us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 1000 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_negative_1"
+    expr: "duration('-1us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: -1000 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_canonical_exact_positive"
+    expr: "duration('1000000us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_canonical_overflow_positive"
+    expr: "duration('1000001us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 1000 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_canonical_exact_negative"
+    expr: "duration('-1000000us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_canonical_overflow_negative"
+    expr: "duration('-1000001us')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: -1000 }
+      }
+    }
+  }
+
+  test {
+    name: "microseconds_mu_0"
+    expr: "duration('0µs')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_mu_half"
+    expr: "duration('0.5µs')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 500 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_mu_1"
+    expr: "duration('1µs')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 1000 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_mu_negative_1"
+    expr: "duration('-1µs')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: -1000 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_mu_canonical_positive"
+    expr: "duration('1000001µs')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 1000 }
+      }
+    }
+  }
+  test {
+    name: "microseconds_mu_canonical_negative"
+    expr: "duration('-1000001µs')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: -1000 }
+      }
+    }
+  }
+
+  test {
+    name: "milliseconds_0"
+    expr: "duration('0ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "milliseconds_half"
+    expr: "duration('0.5ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 500000 }
+      }
+    }
+  }
+  test {
+    name: "milliseconds_1"
+    expr: "duration('1ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 1000000 }
+      }
+    }
+  }
+  test {
+    name: "milliseconds_negative_1"
+    expr: "duration('-1ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: -1000000 }
+      }
+    }
+  }
+  test {
+    name: "milliseconds_canonical_exact_positive"
+    expr: "duration('1000ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "milliseconds_canonical_overflow_positive"
+    expr: "duration('1001ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 1000000 }
+      }
+    }
+  }
+  test {
+    name: "milliseconds_canonical_exact_negative"
+    expr: "duration('-1000ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "milliseconds_canonical_overflow_negative"
+    expr: "duration('-1001ms')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: -1000000 }
+      }
+    }
+  }
+
+  test {
+    name: "seconds_0"
+    expr: "duration('0s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "seconds_half"
+    expr: "duration('0.5s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 500000000 }
+      }
+    }
+  }
+  test {
+    name: "seconds_1"
+    expr: "duration('1s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "seconds_negative_1"
+    expr: "duration('-1s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -1, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "minutes_0"
+    expr: "duration('0m')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "minutes_half"
+    expr: "duration('0.5m')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 30, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "minutes_1"
+    expr: "duration('1m')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 60, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "minutes_negative_1"
+    expr: "duration('-1m')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -60, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "hours_0"
+    expr: "duration('0h')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "hours_half"
+    expr: "duration('0.5h')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 1800, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "hours_1"
+    expr: "duration('1h')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 3600, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "hours_negative_1"
+    expr: "duration('-1h')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -3600, nanos: 0 }
+      }
+    }
+  }
+
+  test {
+    name: "all_0"
+    expr: "duration('0h0m0s0ms0us0ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "all_1"
+    expr: "duration('1h1m1s1ms1us1ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 3661, nanos: 1001001 }
+      }
+    }
+  }
+  test {
+    name: "all_negative_1"
+    expr: "duration('-1h1m1s1ms1us1ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -3661, nanos: -1001001 }
+      }
+    }
+  }
+  test {
+    name: "all_overflow"
+    expr: "duration('25h61m61s1001ms1001us1001ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 93722, nanos: 2002001 }
+      }
+    }
+  }
+  test {
+    name: "all_negative_overflow"
+    expr: "duration('-25h61m61s1001ms1001us1001ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: -93722, nanos: -2002001 }
+      }
+    }
+  }
+
+  test {
+    name: "plus_sign"
+    expr: "duration('+30s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 30, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "fraction_without_integer_part"
+    expr: "duration('.5s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 500000000 }
+      }
+    }
+  }
+  test {
+    name: "decimal_point_without_fractional_part"
+    expr: "duration('5.s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 5, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "fractional_nanoseconds_truncation"
+    expr: "duration('0.9ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "inverted_order"
+    expr: "duration('1ns1us1ms1s1m1h')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 3661, nanos: 1001001 }
+      }
+    }
+  }
+  test {
+    name: "arbitrary_order"
+    expr: "duration('1us1h1ns1ms1m1s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 3661, nanos: 1001001 }
+      }
+    }
+  }
+  test {
+    name: "repetition"
+    expr: "duration('1h1h1m1m1s1s1ms1ms1us1us1ns1ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 7322, nanos: 2002002 }
+      }
+    }
+  }
+  test {
+    name: "repetition_overflow"
+    expr: "duration('13h13h31m31m31s31s501ms501ms501us501us501ns501ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 97383, nanos: 3003002 }
+      }
+    }
+  }
+  test {
+    name: "minus_zero"
+    expr: "duration('-0s')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "unitless_zero"
+    expr: "duration('0')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "unitless_plus_zero"
+    expr: "duration('+0')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+  test {
+    name: "unitless_minus_zero"
+    expr: "duration('-0')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] { seconds: 0, nanos: 0 }
+      }
+    }
+  }
+}
 section {
   name: "timestamp_selectors"
   description: "Timestamp selection operators without timezones"
