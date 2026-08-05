@@ -294,3 +294,38 @@ py_proto_library(
     deprecation = "Use EvalState instead.",
     deps = [":explain_proto"],
 )
+
+###############################################################################
+## Python
+###############################################################################
+load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
+
+py_proto_library(
+    name = "expr_py_pb2",
+    deps = [":expr_proto"],
+)
+
+py_proto_library(
+    name = "syntax_py_pb2",
+    deps = [":syntax_proto"],
+)
+
+py_proto_library(
+    name = "checked_py_pb2",
+    deps = [":checked_proto"],
+)
+
+py_proto_library(
+    name = "value_py_pb2",
+    deps = [":value_proto"],
+)
+
+py_proto_library(
+    name = "eval_py_pb2",
+    deps = [":eval_proto"],
+)
+
+py_proto_library(
+    name = "explain_py_pb2",
+    deps = [":explain_proto"],
+)
