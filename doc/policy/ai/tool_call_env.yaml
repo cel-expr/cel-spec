@@ -1,0 +1,85 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Inherits from the common_agent_env.yaml and extends it with additional
+# variables for tool call support.
+
+name: "ai.tool_call_env"
+
+variables:
+  - name: "tool.name"
+    type_name: "string"
+    description: |
+      The name of the tool.
+  - name: "tool.description"
+    type_name: "string"
+    description: |
+      A description of the tool.
+  - name: "tool.input_schema"
+    type_name: "google.protobuf.Struct"
+    description: |
+      The JSON schema for the tool input parameters.
+  - name: "tool.output_schema"
+    type_name: "google.protobuf.Struct"
+    description: |
+      The JSON schema for the tool output.
+  - name: "tool.annotations"
+    type_name: "cel.expr.ai.ToolAnnotations"
+    description: |
+      Well-defined annotations about tool behavior.
+      Valid tool properties include:
+        - tool.annotations.read_only: Whether the tool is read-only.
+        - tool.annotations.destructive: Whether the tool is destructive.
+        - tool.annotations.idempotent: Whether the tool is idempotent.
+        - tool.annotations.open_world: Whether the tool interacts with the public internet.
+        - tool.annotations.async: Whether the tool is asynchronous.
+        - tool.annotations.output_trust.level: String representation of the output trust level.
+  - name: "tool.metadata"
+    type_name: "google.protobuf.Struct"
+    description: |
+      Dynamic metadata about the tool referenced within the policy.
+
+  - name: "tool.call"
+    type_name: "cel.expr.ai.ToolCall"
+    description: |
+      Information about the tool call parameters, and if the call has completed, the result.
+      Valid tool call properties include:
+        - tool.call.params: JSON representation of the arguments passed to the tool where the key
+          names correspond to properties in the tool.input_schema.
+        - tool.call.time: The RFC3339 timestamp when the tool call was made.
+        - tool.call.user_confirmed: Whether the user confirmed the tool call.
+        - tool.call.result: The result of the tool call of type 'ContentPart'
+        - tool.call.error: The error, if any, of the tool call.
+
+      When interacting with a complete tool call e.g. `has(tool.call.result)`, the
+      `tool.call.result` field will contain the following fields:
+        - tool.call.result.type: The type of the result, e.g. 'text', 'json', 'file'.
+        - tool.call.result.mime_type: The MIME type of the result.
+          e.g. 'text/plain', 'application/json', 'image/png'.
+        - tool.call.result.content: The textual content of the result if the result.type is 'text'.
+        - tool.call.result.data: The binary data of the result, present if the result.type is
+          non-textual data such as when mime_type is 'image/png' is 'image/png'.
+        - tool.call.result.structured_content: The JSON representation of the result if the
+          result.type is 'json'.
+
+  - name: "tool.provider"
+    type_name: "cel.expr.ai.ToolProvider"
+    description: |
+      The endpoint which provides the tool.
+      Valid tool provider properties include:
+        - tool.provider.url: The URL from which these tools were sourced.
+        - tool.provider.organization: The organization that provides the tool.
+        - tool.provider.authorization_server_url: The URL of the authorization server for the
+          tool provider to which a scoped authentication credential should be requested.
+        - tool.provider.supported_scopes: The scopes supported by the tool provider.
