@@ -358,6 +358,22 @@ section {
       string_value: "9999-12-31T23:59:59.999999999Z"
     }
   }
+  test {
+    name: "timestamp_out_of_range_max"
+    container: "cel.expr.conformance.proto3"
+    expr: "TestAllTypes{single_timestamp: google.protobuf.Timestamp{ seconds: 253402300800 } }"
+    eval_error: {
+      errors: { message: "range" }
+    }
+  }
+  test {
+    name: "timestamp_out_of_range_min"
+    container: "cel.expr.conformance.proto3"
+    expr: "TestAllTypes{single_timestamp: google.protobuf.Timestamp{ seconds: -62135596801 } }"
+    eval_error: {
+      errors: { message: "range" }
+    }
+  }
 }
 
 # google.protobuf.Empty
