@@ -1177,3 +1177,73 @@ section {
   }
 }
 
+section {
+  name: "type_decay"
+  description: "Tests for type decay / least-upper-bound generalization of types."
+  test {
+    name: "type_list_decay"
+    expr: "[int, bool, double]"
+    typed_result {
+      result {
+        list_value {
+          values {
+            type_value: "int"
+          }
+          values {
+            type_value: "bool"
+          }
+          values {
+            type_value: "double"
+          }
+        }
+      }
+      deduced_type {
+        list_type {
+          elem_type {
+            type {
+              dyn {}
+            }
+          }
+        }
+      }
+    }
+  }
+  test {
+    name: "type_ternary_decay"
+    expr: "true ? type(1) : type(1u)"
+    typed_result {
+      result {
+        type_value: "int"
+      }
+      deduced_type {
+        type {
+          dyn {}
+        }
+      }
+    }
+  }
+  test {
+    name: "type_free_param_list_decay"
+    description: "Type decay for list literal containing a free type parameter in TypeType and a concrete type."
+    expr: "[type([]), int]"
+    typed_result {
+      result {
+        list_value {
+          values {
+            type_value: "list"
+          }
+          values {
+            type_value: "int"
+          }
+        }
+      }
+      deduced_type {
+        list_type {
+          elem_type {
+            dyn {}
+          }
+        }
+      }
+    }
+  }
+}
