@@ -1179,7 +1179,7 @@ section {
 
 section {
   name: "type_decay"
-  description: "Tests for type decay / least-upper-bound generalization of types."
+  description: "Tests for type decay / least-upper-bound generalization of type values."
   test {
     name: "type_list_decay"
     expr: "[int, bool, double]"
@@ -1224,7 +1224,7 @@ section {
   }
   test {
     name: "type_free_param_list_decay"
-    description: "Type decay for list literal containing a free type parameter in TypeType and a concrete type."
+    description: "Type decay for list literal containing a free type parameter in a type value and a concrete type."
     expr: "[type([]), int]"
     typed_result {
       result {
@@ -1241,6 +1241,82 @@ section {
         list_type {
           elem_type {
             dyn {}
+          }
+        }
+      }
+    }
+  }
+  test {
+    name: "type_nested_list_decay"
+    description: "Type decay for nested list literal with differing type values."
+    expr: "[[type(1)], [type(1u)]]"
+    typed_result {
+      result {
+        list_value {
+          values {
+            list_value {
+              values {
+                type_value: "int"
+              }
+            }
+          }
+          values {
+            list_value {
+              values {
+                type_value: "uint"
+              }
+            }
+          }
+        }
+      }
+      deduced_type {
+        list_type {
+          elem_type {
+            list_type {
+              elem_type {
+                type {
+                  dyn {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  test {
+    name: "type_free_param_list_concat"
+    description: "Type deduction for concatenated lists containing free type parameters in type values."
+    expr: "([] + [[type(1)]]) + [[type([])]]"
+    typed_result {
+      result {
+        list_value {
+          values {
+            list_value {
+              values {
+                type_value: "int"
+              }
+            }
+          }
+          values {
+            list_value {
+              values {
+                type_value: "list"
+              }
+            }
+          }
+        }
+      }
+      deduced_type {
+        list_type {
+          elem_type {
+            list_type {
+              elem_type {
+                type {
+                  dyn {}
+                }
+              }
+            }
           }
         }
       }
