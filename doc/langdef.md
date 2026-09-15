@@ -388,6 +388,11 @@ type `type`, which is an expression by itself which in turn also has type
 *   `type(1) == string` evaluates to `false`
 *   `type(type(1)) == type(string)` evaluates to `true`
 
+At runtime, type parameters on aggregate types are erased (e.g., `type([1]) ==
+list` evaluates to `true`). See
+[Type-Checking Type Values](#type-checking-type-values) for how type values are
+represented during static type checking.
+
 ### Abstract Types
 
 A CEL implementation can add new types to the language. These types will be
@@ -545,8 +550,9 @@ lists have a type parameter for the type of the elements, and maps have two
 parameters for the types of keys and values, respectively. These richer types
 preserve the stronger type guarantees that protocol buffer messages have. We can
 infer stronger types from the standard functions, such as accessing list
-elements or map fields. However, the `type()` function and dynamic dispatch to
-particular function overloads only use the coarser types of the dynamic values.
+elements or map fields. At runtime, however, the `type()` function and dynamic
+overload dispatch only use the coarser types of dynamic values (see
+[Type-Checking Type Values](#type-checking-type-values)).
 
 The type checker also introduces the `dyn` type, which is the union of all other
 types. Therefore the type checker could accept a list of heterogeneous values as
@@ -573,6 +579,25 @@ delegate undecidable type decisions to runtime.
 The type checker is an optional phase of evaluation. Running the type checker
 does not affect the result of evaluation, it can only reject expressions as
 ill-typed in a given typing context.
+
+### Type-Checking Type Values
+
+While all type values share a single runtime type (`type`), the type checker
+represents them as `type(T)` (e.g., `type(1)` has static type `type(int)` and
+`type([1])` has static type `type(list(int))`) to support type parameter
+deduction across functions accepting or returning type values.
+
+To remain consistent with runtime type inspection:
+
+*   **Compatibility and Equality:** All `type(T)` values are compatible wherever
+    `type` is expected. Equality (`==`, `!=`) between any `type(T1)` and
+    `type(T2)` is always well-typed (e.g., `type(x) == int` is valid even if `x`
+    is statically `uint`, and `type([1]) == list` is valid).
+*   **Type Generalization:** Combining distinct `type(T1)` and `type(T2)`
+    expressions (in lists, ternaries, etc.) generalizes their least upper bound
+    to `type(dyn)` rather than `dyn` or a type error, regardless of element
+    order or free type parameters (e.g., both `[type([]), int]` and `[int,
+    type([])]` deduce to `list(type(dyn))`).
 
 ## Evaluation
 
