@@ -1240,7 +1240,35 @@ section {
       deduced_type {
         list_type {
           elem_type {
-            dyn {}
+            type {
+              dyn {}
+            }
+          }
+        }
+      }
+    }
+  }
+  test {
+    name: "type_free_param_list_decay_order_independent"
+    description: "Type decay for list literal containing a concrete type and a free type parameter in a type value."
+    expr: "[int, type([])]"
+    typed_result {
+      result {
+        list_value {
+          values {
+            type_value: "int"
+          }
+          values {
+            type_value: "list"
+          }
+        }
+      }
+      deduced_type {
+        list_type {
+          elem_type {
+            type {
+              dyn {}
+            }
           }
         }
       }
