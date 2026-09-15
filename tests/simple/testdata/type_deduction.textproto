@@ -1154,6 +1154,18 @@ section {
     }
   }
   test {
+    name: "empty_range_nested_comprehension_boolean_map"
+    description: "Inner comprehension body produces bool, so the expression deduces to "
+                 "list(list(bool)) even though the range variable is widened to dyn."
+    check_only: true
+    expr: "[].map(i, i.map(j, j > 1))"
+    typed_result {
+      deduced_type {
+        list_type { elem_type { list_type { elem_type { primitive: BOOL } } } }
+      }
+    }
+  }
+  test {
     name: "empty_range_nested_comprehension_equality"
     description: "Inner comprehension widens the outer element type to dyn and deduces "
                  "list(list(bool)), which is comparable with [[]] (list(list(dyn)))."
