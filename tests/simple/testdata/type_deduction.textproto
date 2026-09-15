@@ -1153,5 +1153,15 @@ section {
       deduced_type { primitive: BOOL }
     }
   }
+  test {
+    name: "empty_range_nested_comprehension_equality"
+    description: "Inner comprehension widens the outer element type to dyn and deduces "
+                 "list(list(bool)), which is comparable with [[]] (list(list(dyn)))."
+    expr: "[].map(i, i.map(j, j > 1)) == [[]]"
+    typed_result {
+      result { bool_value: false }
+      deduced_type { primitive: BOOL }
+    }
+  }
 }
 
