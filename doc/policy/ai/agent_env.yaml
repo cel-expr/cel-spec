@@ -1,0 +1,105 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Inherits from the common_agent_env.yaml and extends it with additional
+# variables for tool call support.
+
+name: "ai.agent_env"
+
+variables:
+  - name: "agent.name"
+    type_name: "string"
+    description: |
+      The name of the agent.
+  - name: "agent.description"
+    type_name: "string"
+    description: |
+      A description of the agent.
+  - name: "agent.auth"
+    type_name: "cel.expr.ai.AgentAuth"
+    description: |
+      The authentication information for the agent.
+      Valid agent auth properties include:
+        - agent.auth.principal: The principal associated with the agent.
+        - agent.auth.claims: The claims asserted by the agent.
+        - agent.auth.oauth_scopes: The scopes required by the agent.
+  - name: "agent.context"
+    type_name: "cel.expr.ai.AgentContext"
+    description: |
+      The context of the agent which includes the user input, history, and other relevant data.
+      Valid agent context properties include:
+        - agent.context.prompt: string-typed representation of the prompt provided to the LLM,
+          combining system instructions, context, and user input.
+        - agent.context.trust.level: string-typed trust level of the agent context.
+        - agent.context.trust.findings: list of cel.expr.ai.Finding values which which contribute
+          to the trust level.
+        - agent.context.sources: list of sources referenced in the agent context where each source
+          contains a 'name' and 'value'. The name might be a resource name, the value could either
+          be a string, base64-encoded bytes, or uri if present.
+  - name: "agent.model"
+    type_name: "cel.expr.ai.Model"
+    description: |
+      The model used by the agent.
+      Valid agent model properties include:
+        - agent.model.name: The name of the model.
+  - name: "agent.provider"
+    type_name: "cel.expr.ai.AgentProvider"
+    description: |
+      The provider of the model used by the agent.
+      Valid agent provider properties include:
+        - agent.provider.url: The url where the agent can be found, either a service endpoint or
+          an agent card uri: "https://<agent-card-domain>/<agent-id>/.well-known/agent-card.json".
+        - agent.provider.organization: The organization which maintains the agent.
+
+  - name: "agent.input"
+    type_name: "cel.expr.ai.AgentMessage"
+    description: |
+      The input to the agent, represented as a cel.expr.ai.AgentMessage.
+      Valid agent message properties include:
+        - agent.input.role: string role of the message, either 'user' or 'agent'.
+        - agent.input.metadata: dynamic metadata associated with the input.
+        - agent.input.time: The timestamp of the message.
+        - agent.input.parts: list of message parts provided in the input.
+          Each message part is a cel.expr.ai.AgentMessage.Part.
+
+      To inspect the message parts use helper methods:
+        - agent.input.safetyFindings(<label_name>): Returns the safety findings associated with the
+          parts with the given label name.
+        - agent.input.sensitivityFindings(<label_name>): Returns the sensitivity findings
+          associated with the label for all parts of the message.
+        - agent.input.threatFindings(): Returns the threat findings associated with the
+          parts of the message.
+          parts with the given label name.
+
+  - name: "agent.output"
+    type_name: "cel.expr.ai.AgentMessage"
+    description: |
+      The output to respond with from the agent, represented as a cel.expr.ai.AgentMessage.
+      Valid agent message properties include:
+        - agent.output.role: string role of the message, either 'user' or 'agent'.
+        - agent.output.metadata: dynamic metadata associated with the input.
+        - agent.output.time: The timestamp of the message.
+        - agent.output.parts: list of message parts provided in the input.
+          Each message part is a cel.expr.ai.AgentMessage.Part.
+
+      To inpect the findings in the message parts use helper methods:
+        - agent.output.safetyFindings(<label_name>): Returns the safety findings associated with the
+          parts with the given label name.
+        - agent.output.sensitivityFindings(<label_name>): Returns the sensitivity findings
+          associated with the label for all parts of the message.
+        - agent.output.threatFindings(): Returns the threat findings associated with the
+          parts of the message.
+
+  - name: "agent.history"
+    type_name: "cel.expr.ai.AgentMessageSet"
