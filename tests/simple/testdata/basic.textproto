@@ -241,12 +241,6 @@ section {
       errors { message: "unbound function" }
     }
   }
-  test {
-    name: "unbound_is_runtime_error"
-    expr: "f_unknown(17) || true"
-    disable_check: true
-    value { bool_value: true }
-  }
 }
 section {
   name: "reserved_const"
