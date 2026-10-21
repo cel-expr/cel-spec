@@ -45,15 +45,15 @@ section: {
     expr: "'tacocat'.indexOf('none') == -1"
   }
   test: {
-    name: "empty_index"
+    name: "empty_index_offset"
     expr: "'tacocat'.indexOf('', 3) == 3"
   }
   test: {
-    name: "char_index"
+    name: "char_index_offset"
     expr: "'tacocat'.indexOf('a', 3) == 5"
   }
   test: {
-    name: "string_index"
+    name: "string_index_offset"
     expr: "'tacocat'.indexOf('at', 3) == 5"
   }
   test: {
@@ -379,443 +379,443 @@ section: {
   name: "format"
   test: {
     name: "no-op"
-    expr: '"no substitution".format([])'
+    expr: "\"no substitution\".format([])"
     value: {
-      string_value: 'no substitution',
+      string_value: "no substitution"
     }
   }
   test: {
     name: "mid-string substitution"
-    expr: '"str is %s and some more".format(["filler"])'
+    expr: "\"str is %s and some more\".format([\"filler\"])"
     value: {
-      string_value: 'str is filler and some more',
+      string_value: "str is filler and some more"
     }
   }
   test: {
     name: "percent escaping"
-    expr: '"%% and also %%".format([])'
+    expr: "\"%% and also %%\".format([])"
     value: {
-      string_value: '% and also %',
+      string_value: "% and also %"
     }
   }
   test: {
     name: "substitution inside escaped percent signs"
-    expr: '"%%%s%%".format(["text"])'
+    expr: "\"%%%s%%\".format([\"text\"])"
     value: {
-      string_value: '%text%',
+      string_value: "%text%"
     }
   }
   test: {
     name: "substitution with one escaped percent sign on the right"
-    expr: '"%s%%".format(["percent on the right"])'
+    expr: "\"%s%%\".format([\"percent on the right\"])"
     value: {
-      string_value: 'percent on the right%',
+      string_value: "percent on the right%"
     }
   }
   test: {
     name: "substitution with one escaped percent sign on the left"
-    expr: '"%%%s".format(["percent on the left"])'
+    expr: "\"%%%s\".format([\"percent on the left\"])"
     value: {
-      string_value: '%percent on the left',
+      string_value: "%percent on the left"
     }
   }
   test: {
     name: "multiple substitutions"
-    expr: '"%d %d %d, %s %s %s, %d %d %d, %s %s %s".format([1, 2, 3, "A", "B", "C", 4, 5, 6, "D", "E", "F"])'
+    expr: "\"%d %d %d, %s %s %s, %d %d %d, %s %s %s\".format([1, 2, 3, \"A\", \"B\", \"C\", 4, 5, 6, \"D\", \"E\", \"F\"])"
     value: {
-      string_value: '1 2 3, A B C, 4 5 6, D E F',
+      string_value: "1 2 3, A B C, 4 5 6, D E F"
     }
   }
   test: {
     name: "percent sign escape sequence support"
-    expr: '"%%escaped %s%%".format(["percent"])'
+    expr: "\"%%escaped %s%%\".format([\"percent\"])"
     value: {
-      string_value: '%escaped percent%',
+      string_value: "%escaped percent%"
     }
   }
   test: {
     name: "fixed point formatting clause"
-    expr: '"%.3f".format([1.2345])'
+    expr: "\"%.3f\".format([1.2345])"
     value: {
-      string_value: '1.234',
+      string_value: "1.234"
     }
   }
   test: {
     name: "binary formatting clause"
-    expr: '"this is 5 in binary: %b".format([5])'
+    expr: "\"this is 5 in binary: %b\".format([5])"
     value: {
-      string_value: 'this is 5 in binary: 101',
+      string_value: "this is 5 in binary: 101"
     }
   }
   test: {
     name: "uint support for binary formatting"
-    expr: '"unsigned 64 in binary: %b".format([uint(64)])'
+    expr: "\"unsigned 64 in binary: %b\".format([uint(64)])"
     value: {
-      string_value: 'unsigned 64 in binary: 1000000',
+      string_value: "unsigned 64 in binary: 1000000"
     }
   }
   test: {
     name: "bool support for binary formatting"
-    expr: '"bit set from bool: %b".format([true])'
+    expr: "\"bit set from bool: %b\".format([true])"
     value: {
-      string_value: 'bit set from bool: 1',
+      string_value: "bit set from bool: 1"
     }
   }
   test: {
     name: "octal formatting clause"
-    expr: '"%o".format([11])'
+    expr: "\"%o\".format([11])"
     value: {
-      string_value: '13',
+      string_value: "13"
     }
   }
   test: {
     name: "uint support for octal formatting clause"
-    expr: '"this is an unsigned octal: %o".format([uint(65535)])'
+    expr: "\"this is an unsigned octal: %o\".format([uint(65535)])"
     value: {
-      string_value: 'this is an unsigned octal: 177777',
+      string_value: "this is an unsigned octal: 177777"
     }
   }
   test: {
     name: "lowercase hexadecimal formatting clause"
-    expr: '"%x is 20 in hexadecimal".format([30])'
+    expr: "\"%x is 20 in hexadecimal\".format([30])"
     value: {
-      string_value: '1e is 20 in hexadecimal',
+      string_value: "1e is 20 in hexadecimal"
     }
   }
   test: {
     name: "uppercase hexadecimal formatting clause"
-    expr: '"%X is 20 in hexadecimal".format([30])'
+    expr: "\"%X is 20 in hexadecimal\".format([30])"
     value: {
-      string_value: '1E is 20 in hexadecimal',
+      string_value: "1E is 20 in hexadecimal"
     }
   }
   test: {
     name: "unsigned support for hexadecimal formatting clause"
-    expr: '"%X is 6000 in hexadecimal".format([uint(6000)])'
+    expr: "\"%X is 6000 in hexadecimal\".format([uint(6000)])"
     value: {
-      string_value: '1770 is 6000 in hexadecimal',
+      string_value: "1770 is 6000 in hexadecimal"
     }
   }
   test: {
     name: "string support with hexadecimal formatting clause"
-    expr: '"%x".format(["Hello world!"])'
+    expr: "\"%x\".format([\"Hello world!\"])"
     value: {
-      string_value: '48656c6c6f20776f726c6421',
+      string_value: "48656c6c6f20776f726c6421"
     }
   }
   test: {
     name: "string support with uppercase hexadecimal formatting clause"
-    expr: '"%X".format(["Hello world!"])'
+    expr: "\"%X\".format([\"Hello world!\"])"
     value: {
-      string_value: '48656C6C6F20776F726C6421',
+      string_value: "48656C6C6F20776F726C6421"
     }
   }
   test: {
     name: "byte support with hexadecimal formatting clause"
-    expr: '"%x".format([b"byte string"])'
+    expr: "\"%x\".format([b\"byte string\"])"
     value: {
-      string_value: '6279746520737472696e67',
+      string_value: "6279746520737472696e67"
     }
   }
   test: {
     name: "byte support with uppercase hexadecimal formatting clause"
-    expr: '"%X".format([b"byte string"])'
+    expr: "\"%X\".format([b\"byte string\"])"
     value: {
-      string_value: '6279746520737472696E67',
+      string_value: "6279746520737472696E67"
     }
   }
   test: {
     name: "scientific notation formatting clause"
-    expr: '"%.6e".format([1052.032911275])'
+    expr: "\"%.6e\".format([1052.032911275])"
     value: {
-      string_value: '1.052033e+03',
+      string_value: "1.052033e+03"
     }
   }
   test: {
     name: "default precision for fixed-point clause"
-    expr: '"%f".format([2.71828])'
+    expr: "\"%f\".format([2.71828])"
     value: {
-      string_value: '2.718280',
+      string_value: "2.718280"
     }
   }
   test: {
     name: "default precision for fixed-point clause with int"
-    expr: '"%f".format([2])'
+    expr: "\"%f\".format([2])"
     value: {
-      string_value: '2.000000',
+      string_value: "2.000000"
     }
   }
   test: {
     name: "default precision for fixed-point clause with uint"
-    expr: '"%f".format([3u])'
+    expr: "\"%f\".format([3u])"
     value: {
-      string_value: '3.000000',
+      string_value: "3.000000"
     }
   }
   test: {
     name: "default precision for scientific notation"
-    expr: '"%e".format([2.71828])'
+    expr: "\"%e\".format([2.71828])"
     value: {
-      string_value: '2.718280e+00',
+      string_value: "2.718280e+00"
     }
   }
   test: {
     name: "default precision for scientific notation with int"
-    expr: '"%e".format([2])'
+    expr: "\"%e\".format([2])"
     value: {
-      string_value: '2.000000e+00',
+      string_value: "2.000000e+00"
     }
   }
   test: {
     name: "default precision for scientific notation with uint"
-    expr: '"%e".format([3u])'
+    expr: "\"%e\".format([3u])"
     value: {
-      string_value: '3.000000e+00',
+      string_value: "3.000000e+00"
     }
   }
   test: {
     name: "NaN support for scientific notation"
-    expr: '"%e".format([double("NaN")])'
+    expr: "\"%e\".format([double(\"NaN\")])"
     value: {
-      string_value: 'NaN',
+      string_value: "NaN"
     }
   }
   test: {
     name: "positive infinity support for scientific notation"
-    expr: '"%e".format([double("Infinity")])'
+    expr: "\"%e\".format([double(\"Infinity\")])"
     value: {
-      string_value: 'Infinity',
+      string_value: "Infinity"
     }
   }
   test: {
     name: "negative infinity support for scientific notation"
-    expr: '"%e".format([double("-Infinity")])'
+    expr: "\"%e\".format([double(\"-Infinity\")])"
     value: {
-      string_value: '-Infinity',
+      string_value: "-Infinity"
     }
   }
   test: {
     name: "NaN support for decimal"
-    expr: '"%d".format([double("NaN")])'
+    expr: "\"%d\".format([double(\"NaN\")])"
     value: {
-      string_value: 'NaN',
+      string_value: "NaN"
     }
   }
   test: {
     name: "positive infinity support for decimal"
-    expr: '"%d".format([double("Infinity")])'
+    expr: "\"%d\".format([double(\"Infinity\")])"
     value: {
-      string_value: 'Infinity',
+      string_value: "Infinity"
     }
   }
   test: {
     name: "negative infinity support for decimal"
-    expr: '"%d".format([double("-Infinity")])'
+    expr: "\"%d\".format([double(\"-Infinity\")])"
     value: {
-      string_value: '-Infinity',
+      string_value: "-Infinity"
     }
   }
   test: {
     name: "NaN support for fixed-point"
-    expr: '"%f".format([double("NaN")])'
+    expr: "\"%f\".format([double(\"NaN\")])"
     value: {
-      string_value: 'NaN',
+      string_value: "NaN"
     }
   }
   test: {
     name: "positive infinity support for fixed-point"
-    expr: '"%f".format([double("Infinity")])'
+    expr: "\"%f\".format([double(\"Infinity\")])"
     value: {
-      string_value: 'Infinity',
+      string_value: "Infinity"
     }
   }
   test: {
     name: "negative infinity support for fixed-point"
-    expr: '"%f".format([double("-Infinity")])'
+    expr: "\"%f\".format([double(\"-Infinity\")])"
     value: {
-      string_value: '-Infinity',
+      string_value: "-Infinity"
     }
   }
   test: {
     name: "uint support for decimal clause"
-    expr: '"%d".format([uint(64)])'
+    expr: "\"%d\".format([uint(64)])"
     value: {
-      string_value: '64',
+      string_value: "64"
     }
   }
   test: {
     name: "null support for string"
-    expr: '"%s".format([null])'
+    expr: "\"%s\".format([null])"
     value: {
-      string_value: 'null',
+      string_value: "null"
     }
   }
   test: {
     name: "int support for string"
-    expr: '"%s".format([999999999999])'
+    expr: "\"%s\".format([999999999999])"
     value: {
-      string_value: '999999999999',
+      string_value: "999999999999"
     }
   }
   test: {
     name: "bytes support for string"
-    expr: '"%s".format([b"xyz"])'
+    expr: "\"%s\".format([b\"xyz\"])"
     value: {
-      string_value: 'xyz',
+      string_value: "xyz"
     }
   }
   test: {
     name: "type() support for string"
-    expr: '"%s".format([type("test string")])'
+    expr: "\"%s\".format([type(\"test string\")])"
     value: {
-      string_value: 'string',
+      string_value: "string"
     }
   }
   test: {
     name: "timestamp support for string"
-    expr: '"%s".format([timestamp("2023-02-03T23:31:20+00:00")])'
+    expr: "\"%s\".format([timestamp(\"2023-02-03T23:31:20+00:00\")])"
     value: {
-      string_value: '2023-02-03T23:31:20Z',
+      string_value: "2023-02-03T23:31:20Z"
     }
   }
   test: {
     name: "duration support for string"
-    expr: '"%s".format([duration("1h45m47s")])'
+    expr: "\"%s\".format([duration(\"1h45m47s\")])"
     value: {
-      string_value: '6347s',
+      string_value: "6347s"
     }
   }
   test: {
     name: "list support for string"
-    expr: '"%s".format([["abc", 3.14, null, [9, 8, 7, 6], timestamp("2023-02-03T23:31:20Z")]])'
+    expr: "\"%s\".format([[\"abc\", 3.14, null, [9, 8, 7, 6], timestamp(\"2023-02-03T23:31:20Z\")]])"
     value: {
-      string_value: '[abc, 3.14, null, [9, 8, 7, 6], 2023-02-03T23:31:20Z]',
+      string_value: "[abc, 3.14, null, [9, 8, 7, 6], 2023-02-03T23:31:20Z]"
     }
   }
   test: {
     name: "map support for string"
-    expr: '"%s".format([{"key1": b"xyz", "key5": null, "key2": duration("2h"), "key4": true, "key3": 2.71828}])'
+    expr: "\"%s\".format([{\"key1\": b\"xyz\", \"key5\": null, \"key2\": duration(\"2h\"), \"key4\": true, \"key3\": 2.71828}])"
     value: {
-      string_value: '{key1: xyz, key2: 7200s, key3: 2.71828, key4: true, key5: null}',
+      string_value: "{key1: xyz, key2: 7200s, key3: 2.71828, key4: true, key5: null}"
     }
   }
   test: {
     name: "map support (all key types)"
-    expr: '"%s".format([{1: "value1", uint(2): "value2", true: double("NaN")}])'
+    expr: "\"%s\".format([{1: \"value1\", uint(2): \"value2\", true: double(\"NaN\")}])"
     value: {
-      string_value: '{1: value1, 2: value2, true: NaN}',
+      string_value: "{1: value1, 2: value2, true: NaN}"
     }
   }
   test: {
     name: "boolean support for %s"
-    expr: '"%s, %s".format([true, false])'
+    expr: "\"%s, %s\".format([true, false])"
     value: {
-      string_value: 'true, false',
+      string_value: "true, false"
     }
   }
   test: {
-      name: "dyntype support for string formatting clause"
-      expr: '"%s".format([dyn("a string")])'
-      value: {
-          string_value: 'a string',
-      }
+    name: "dyntype support for string formatting clause"
+    expr: "\"%s\".format([dyn(\"a string\")])"
+    value: {
+      string_value: "a string"
+    }
   }
   test: {
     name: "dyntype support for numbers with string formatting clause"
-    expr: '"%s, %s".format([dyn(32), dyn(56.8)])'
+    expr: "\"%s, %s\".format([dyn(32), dyn(56.8)])"
     value: {
-      string_value: '32, 56.8',
+      string_value: "32, 56.8"
     }
   }
   test: {
     name: "dyntype support for integer formatting clause"
-    expr: '"%d".format([dyn(128)])'
+    expr: "\"%d\".format([dyn(128)])"
     value: {
-      string_value: '128',
+      string_value: "128"
     }
   }
   test: {
     name: "dyntype support for integer formatting clause (unsigned)"
-    expr: '"%d".format([dyn(256u)])'
+    expr: "\"%d\".format([dyn(256u)])"
     value: {
-      string_value: '256',
+      string_value: "256"
     }
   }
   test: {
     name: "dyntype support for hex formatting clause"
-    expr: '"%x".format([dyn(22)])'
+    expr: "\"%x\".format([dyn(22)])"
     value: {
-      string_value: '16',
+      string_value: "16"
     }
   }
   test: {
     name: "dyntype support for hex formatting clause (uppercase)"
-    expr: '"%X".format([dyn(26)])'
+    expr: "\"%X\".format([dyn(26)])"
     value: {
-      string_value: '1A',
+      string_value: "1A"
     }
   }
   test: {
     name: "dyntype support for unsigned hex formatting clause"
-    expr: '"%x".format([dyn(500u)])'
+    expr: "\"%x\".format([dyn(500u)])"
     value: {
-      string_value: '1f4',
+      string_value: "1f4"
     }
   }
   test: {
     name: "dyntype support for fixed-point formatting clause"
-    expr: '"%.3f".format([dyn(4.5)])'
+    expr: "\"%.3f\".format([dyn(4.5)])"
     value: {
-      string_value: '4.500',
+      string_value: "4.500"
     }
   }
   test: {
     name: "dyntype support for scientific notation"
-    expr: '"%e".format([dyn(2.71828)])'
+    expr: "\"%e\".format([dyn(2.71828)])"
     value: {
-      string_value: '2.718280e+00',
+      string_value: "2.718280e+00"
     }
   }
   test: {
     name: "dyntype NaN/infinity support"
-    expr: '"%s".format([[double("NaN"), double("Infinity"), double("-Infinity")]])'
+    expr: "\"%s\".format([[double(\"NaN\"), double(\"Infinity\"), double(\"-Infinity\")]])"
     value: {
-      string_value: '[NaN, Infinity, -Infinity]',
+      string_value: "[NaN, Infinity, -Infinity]"
     }
   }
   test: {
     name: "dyntype support for timestamp"
-    expr: '"%s".format([dyn(timestamp("2009-11-10T23:00:00Z"))])'
+    expr: "\"%s\".format([dyn(timestamp(\"2009-11-10T23:00:00Z\"))])"
     value: {
-      string_value: '2009-11-10T23:00:00Z',
+      string_value: "2009-11-10T23:00:00Z"
     }
   }
   test: {
     name: "dyntype support for duration"
-    expr: '"%s".format([dyn(duration("8747s"))])'
+    expr: "\"%s\".format([dyn(duration(\"8747s\"))])"
     value: {
-      string_value: '8747s',
+      string_value: "8747s"
     }
   }
   test: {
     name: "dyntype support for lists"
-    expr: '"%s".format([dyn([6, 4.2, "a string"])])'
+    expr: "\"%s\".format([dyn([6, 4.2, \"a string\"])])"
     value: {
-      string_value: '[6, 4.2, a string]',
+      string_value: "[6, 4.2, a string]"
     }
   }
   test: {
     name: "dyntype support for maps"
-    expr: '"%s".format([{"strKey":"x", 6:duration("422s"), true:42}])'
+    expr: "\"%s\".format([{\"strKey\":\"x\", 6:duration(\"422s\"), true:42}])"
     value: {
-      string_value: '{6: 422s, strKey: x, true: 42}',
+      string_value: "{6: 422s, strKey: x, true: 42}"
     }
   }
   test: {
     name: "string substitution in a string variable"
-    expr: 'str_var.format(["filler"])'
+    expr: "str_var.format([\"filler\"])"
     type_env: {
-      name: "str_var",
+      name: "str_var"
       ident: { type: { primitive: STRING } }
     }
     bindings: {
@@ -823,14 +823,14 @@ section: {
       value: { value: { string_value: "%s" } }
     }
     value: {
-      string_value: 'filler',
+      string_value: "filler"
     }
   }
   test: {
     name: "multiple substitutions in a string variable"
-    expr: 'str_var.format([1, 2, 3, "A", "B", "C", 4, 5, 6, "D", "E", "F"])'
+    expr: "str_var.format([1, 2, 3, \"A\", \"B\", \"C\", 4, 5, 6, \"D\", \"E\", \"F\"])"
     type_env: {
-      name: "str_var",
+      name: "str_var"
       ident: { type: { primitive: STRING } }
     }
     bindings: {
@@ -838,14 +838,14 @@ section: {
       value: { value: { string_value: "%d %d %d, %s %s %s, %d %d %d, %s %s %s" } }
     }
     value: {
-      string_value: '1 2 3, A B C, 4 5 6, D E F',
+      string_value: "1 2 3, A B C, 4 5 6, D E F"
     }
   }
   test: {
     name: "substitution inside escaped percent signs in a string variable"
-    expr: 'str_var.format(["text"])'
+    expr: "str_var.format([\"text\"])"
     type_env: {
-      name: "str_var",
+      name: "str_var"
       ident: { type: { primitive: STRING } }
     }
     bindings: {
@@ -853,14 +853,14 @@ section: {
       value: { value: { string_value: "%%%s%%" } }
     }
     value: {
-      string_value: '%text%',
+      string_value: "%text%"
     }
   }
   test: {
     name: "fixed point formatting clause in a string variable"
-    expr: 'str_var.format([1.2345])'
+    expr: "str_var.format([1.2345])"
     type_env: {
-      name: "str_var",
+      name: "str_var"
       ident: { type: { primitive: STRING } }
     }
     bindings: {
@@ -868,14 +868,14 @@ section: {
       value: { value: { string_value: "%.3f" } }
     }
     value: {
-      string_value: '1.234',
+      string_value: "1.234"
     }
   }
   test: {
     name: "binary formatting clause in a string variable"
-    expr: 'str_var.format([5])'
+    expr: "str_var.format([5])"
     type_env: {
-      name: "str_var",
+      name: "str_var"
       ident: { type: { primitive: STRING } }
     }
     bindings: {
@@ -883,14 +883,14 @@ section: {
       value: { value: { string_value: "%b" } }
     }
     value: {
-      string_value: '101',
+      string_value: "101"
     }
   }
   test: {
     name: "scientific notation formatting clause in a string variable"
-    expr: 'str_var.format([1052.032911275])'
+    expr: "str_var.format([1052.032911275])"
     type_env: {
-      name: "str_var",
+      name: "str_var"
       ident: { type: { primitive: STRING } }
     }
     bindings: {
@@ -898,14 +898,14 @@ section: {
       value: { value: { string_value: "%.6e" } }
     }
     value: {
-      string_value: '1.052033e+03',
+      string_value: "1.052033e+03"
     }
   }
   test: {
     name: "default precision for fixed-point clause in a string variable"
-    expr: 'str_var.format([2.71828])'
+    expr: "str_var.format([2.71828])"
     type_env: {
-      name: "str_var",
+      name: "str_var"
       ident: { type: { primitive: STRING } }
     }
     bindings: {
@@ -913,77 +913,77 @@ section: {
       value: { value: { string_value: "%f" } }
     }
     value: {
-      string_value: '2.718280',
+      string_value: "2.718280"
     }
   }
-test: {
+  test: {
     name: "format_%f_insignificant_zeroes_removed"
-    expr: '"%.0f".format([123.000000])'
+    expr: "\"%.0f\".format([123.000000])"
     value: {
-      string_value: '123',
+      string_value: "123"
     }
   }
   test: {
     name: "format_%f_positive_round_to_whole_number"
-    expr: '"%.0f".format([3.5001])'
+    expr: "\"%.0f\".format([3.5001])"
     value: {
-      string_value: '4',
+      string_value: "4"
     }
   }
   test: {
     name: "format_%f_negative_truncate_to_whole_number"
-    expr: '"%.0f".format([3.4999])'
+    expr: "\"%.0f\".format([3.4999])"
     value: {
-      string_value: '3',
+      string_value: "3"
     }
   }
   test: {
     name: "format_%f_halfway_round_up_to_nearest_even"
-    expr: '"%.0f".format([1.5])'
+    expr: "\"%.0f\".format([1.5])"
     value: {
-      string_value: '2',
+      string_value: "2"
     }
   }
   test: {
     name: "format_%f_halfway_truncate_to_nearest_even"
-    expr: '"%.0f".format([2.5])'
+    expr: "\"%.0f\".format([2.5])"
     value: {
-      string_value: '2',
+      string_value: "2"
     }
   }
   test: {
     name: "format_%f_positive_round_up"
-    expr: '"%.3f".format([123.4999])'
+    expr: "\"%.3f\".format([123.4999])"
     value: {
-      string_value: '123.500',
+      string_value: "123.500"
     }
   }
   test: {
     name: "format_%f_positive_round_down"
-    expr: '"%.3f".format([123.4994])'
+    expr: "\"%.3f\".format([123.4994])"
     value: {
-      string_value: '123.499',
+      string_value: "123.499"
     }
   }
   test: {
     name: "format_%f_negative_round_up"
-    expr: '"%.3f".format([-123.4999])'
+    expr: "\"%.3f\".format([-123.4999])"
     value: {
-      string_value: '-123.500',
+      string_value: "-123.500"
     }
   }
   test: {
     name: "format_%f_negative_round_down"
-    expr: '"%.3f".format([-123.4994])'
+    expr: "\"%.3f\".format([-123.4994])"
     value: {
-      string_value: '-123.499',
+      string_value: "-123.499"
     }
   }
   test: {
     name: "format_%f_zero_padding"
-    expr: '"%.5f".format([-1.2])'
+    expr: "\"%.5f\".format([-1.2])"
     value: {
-      string_value: '-1.20000',
+      string_value: "-1.20000"
     }
   }
 }
@@ -991,171 +991,171 @@ section: {
   name: "format_errors"
   test: {
     name: "unrecognized formatting clause"
-    expr: '"%a".format([1])'
+    expr: "\"%a\".format([1])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'could not parse formatting clause: unrecognized formatting clause "a"'
+        message: "could not parse formatting clause: unrecognized formatting clause \"a\""
       }
     }
   }
   test: {
     name: "out of bounds arg index"
-    expr: '"%d %d %d".format([0, 1])'
+    expr: "\"%d %d %d\".format([0, 1])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'index 2 out of range'
+        message: "index 2 out of range"
       }
     }
   }
   test: {
     name: "string substitution is not allowed with binary clause"
-    expr: '"string is %b".format(["abc"])'
+    expr: "\"string is %b\".format([\"abc\"])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: only integers and bools can be formatted as binary, was given string'
+        message: "error during formatting: only integers and bools can be formatted as binary, was given string"
       }
     }
   }
   test: {
     name: "duration substitution not allowed with decimal clause"
-    expr: '"%d".format([duration("30m2s")])'
+    expr: "\"%d\".format([duration(\"30m2s\")])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: decimal clause can only be used on integers, was given google.protobuf.Duration'
+        message: "error during formatting: decimal clause can only be used on integers, was given google.protobuf.Duration"
       }
     }
   }
   test: {
     name: "string substitution not allowed with octal clause"
-    expr: '"octal: %o".format(["a string"])'
+    expr: "\"octal: %o\".format([\"a string\"])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: octal clause can only be used on integers, was given string'
+        message: "error during formatting: octal clause can only be used on integers, was given string"
       }
     }
   }
   test: {
     name: "double substitution not allowed with hex clause"
-    expr: '"double is %x".format([0.5])'
+    expr: "\"double is %x\".format([0.5])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given double'
+        message: "error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given double"
       }
     }
   }
   test: {
     name: "uppercase not allowed for scientific clause"
-    expr: '"double is %E".format([0.5])'
+    expr: "\"double is %E\".format([0.5])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'could not parse formatting clause: unrecognized formatting clause "E"'
+        message: "could not parse formatting clause: unrecognized formatting clause \"E\""
       }
     }
   }
   test: {
     name: "object not allowed"
-    expr: '"object is %s".format([cel.expr.conformance.proto3.TestAllTypes{}])'
+    expr: "\"object is %s\".format([cel.expr.conformance.proto3.TestAllTypes{}])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given cel.expr.conformance.proto3.TestAllTypes'
+        message: "error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given cel.expr.conformance.proto3.TestAllTypes"
       }
     }
   }
   test: {
     name: "object inside list"
-    expr: '"%s".format([[1, 2, cel.expr.conformance.proto3.TestAllTypes{}]])'
+    expr: "\"%s\".format([[1, 2, cel.expr.conformance.proto3.TestAllTypes{}]])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given cel.expr.conformance.proto3.TestAllTypes'
+        message: "error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given cel.expr.conformance.proto3.TestAllTypes"
       }
     }
   }
   test: {
     name: "object inside map"
-    expr: '"%s".format([{1: "a", 2: cel.expr.conformance.proto3.TestAllTypes{}}])'
+    expr: "\"%s\".format([{1: \"a\", 2: cel.expr.conformance.proto3.TestAllTypes{}}])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given cel.expr.conformance.proto3.TestAllTypes'
+        message: "error during formatting: string clause can only be used on strings, bools, bytes, ints, doubles, maps, lists, types, durations, and timestamps, was given cel.expr.conformance.proto3.TestAllTypes"
       }
     }
   }
   test: {
     name: "null not allowed for %d"
-    expr: '"null: %d".format([null])'
+    expr: "\"null: %d\".format([null])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: decimal clause can only be used on integers, was given null_type'
+        message: "error during formatting: decimal clause can only be used on integers, was given null_type"
       }
     }
   }
   test: {
     name: "null not allowed for %e"
-    expr: '"null: %e".format([null])'
+    expr: "\"null: %e\".format([null])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: scientific clause can only be used on doubles, was given null_type'
+        message: "error during formatting: scientific clause can only be used on doubles, was given null_type"
       }
     }
   }
   test: {
     name: "null not allowed for %f"
-    expr: '"null: %f".format([null])'
+    expr: "\"null: %f\".format([null])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: fixed-point clause can only be used on doubles, was given null_type'
+        message: "error during formatting: fixed-point clause can only be used on doubles, was given null_type"
       }
     }
   }
   test: {
     name: "null not allowed for %x"
-    expr: '"null: %x".format([null])'
+    expr: "\"null: %x\".format([null])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given null_type'
+        message: "error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given null_type"
       }
     }
   }
   test: {
     name: "null not allowed for %X"
-    expr: '"null: %X".format([null])'
+    expr: "\"null: %X\".format([null])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given null_type'
+        message: "error during formatting: only integers, byte buffers, and strings can be formatted as hex, was given null_type"
       }
     }
   }
   test: {
     name: "null not allowed for %b"
-    expr: '"null: %b".format([null])'
+    expr: "\"null: %b\".format([null])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: only integers and bools can be formatted as binary, was given null_type'
+        message: "error during formatting: only integers and bools can be formatted as binary, was given null_type"
       }
     }
   }
   test: {
     name: "null not allowed for %o"
-    expr: '"null: %o".format([null])'
+    expr: "\"null: %o\".format([null])"
     disable_check: true
     eval_error: {
       errors: {
-        message: 'error during formatting: octal clause can only be used on integers, was given null_type'
+        message: "error during formatting: octal clause can only be used on integers, was given null_type"
       }
     }
   }
