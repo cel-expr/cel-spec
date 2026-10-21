@@ -63,6 +63,34 @@ section: {
     expr: "!sets.contains([1], [1.1, 1u])"
   }
   test: {
+    name: "numeric_negatives"
+    expr: "sets.contains([-1, -9223372036854775808], [-1.0, -9223372036854775808])"
+  }
+  test: {
+    name: "numeric_negatives_and_uint_false"
+    expr: "!sets.contains([18446744073709551615u, 0u, 1], [-1, -9223372036854775808])"
+  }
+  test: {
+    name: "numeric_uint64_max"
+    expr: "sets.contains([18446744073709551615u, 0u], [18446744073709551615u])"
+  }
+  test: {
+    name: "numeric_uint64_max_false"
+    expr: "!sets.contains([-1, 9223372036854775807, 18446744073709590000.0], [18446744073709551615u])"
+  }
+  test: {
+    name: "double_nan_false"
+    expr: "!sets.contains([double('NaN')], [double('NaN')])"
+  }
+  test: {
+    name: "double_inf"
+    expr: "sets.contains([double('Infinity'), double('-Infinity')], [double('Infinity')])"
+  }
+  test: {
+    name: "double_inf_false"
+    expr: "!sets.contains([double('Infinity'), 9223372036854775807, 18446744073709551615u], [double('-Infinity')])"
+  }
+  test: {
     name: "heterogeneous_types_true"
     expr: "sets.contains([1, '1'], [1])"
   }
@@ -103,8 +131,31 @@ section: {
     expr: "sets.contains([{1: 1}], [{1: 1u}, {1: 1.0}])"
   }
   test: {
+    name: "maps_heterogeneous_keys"
+    expr: "sets.contains([{'a': 1, 1: 2, 2u: 3, true: 4}, {'b': 5}], [{true: 4, 2u: 3.0, 1: 2u, 'a': 1.0}])"
+  }
+  test: {
+    name: "maps_heterogeneous_keys_false"
+    expr: "!sets.contains([{'a': 1, 1: 2}], [{'a': 1, '1': 2}])"
+  }
+  test: {
     name: "maps_false"
     expr: "!sets.contains([{'a': 'b'}], [{'a': 'b'}, {'c': 'd'}])"
+  }
+  test: {
+    name: "proto_wrappers"
+    container: "cel.expr.conformance.proto3"
+    expr: "sets.contains([TestAllTypes{single_int64_wrapper: 1}.single_int64_wrapper, TestAllTypes{}.single_int64_wrapper], [1, null])"
+  }
+  test: {
+    name: "proto_wrappers_messages"
+    container: "cel.expr.conformance.proto3"
+    expr: "sets.contains([google.protobuf.Int64Value{value: 1}, google.protobuf.Int64Value{}], [1u, 0.0])"
+  }
+  test: {
+    name: "proto_wrappers_null_not_default_false"
+    container: "cel.expr.conformance.proto3"
+    expr: "!sets.contains([TestAllTypes{}.single_int64_wrapper], [0])"
   }
   test: {
     name: "proto_messages"
@@ -182,6 +233,34 @@ section: {
     expr: "!sets.equivalent([1, 2], [1u, 2, 2.3])"
   }
   test: {
+    name: "numeric_negatives"
+    expr: "sets.equivalent([-1, -9223372036854775808], [-9223372036854775808, -1.0])"
+  }
+  test: {
+    name: "numeric_negatives_and_uint_false"
+    expr: "!sets.equivalent([-1, -1.0], [18446744073709551615u])"
+  }
+  test: {
+    name: "numeric_uint64_max"
+    expr: "sets.equivalent([18446744073709551615u], [18446744073709551615u, 18446744073709551615u])"
+  }
+  test: {
+    name: "numeric_uint64_max_false"
+    expr: "!sets.equivalent([18446744073709551615u], [-1, 9223372036854775807, 18446744073709590000.0])"
+  }
+  test: {
+    name: "double_nan_false"
+    expr: "!sets.equivalent([double('NaN')], [double('NaN')])"
+  }
+  test: {
+    name: "double_inf"
+    expr: "sets.equivalent([double('Infinity'), double('-Infinity')], [double('-Infinity'), double('Infinity')])"
+  }
+  test: {
+    name: "double_inf_false"
+    expr: "!sets.equivalent([double('Infinity')], [double('-Infinity')])"
+  }
+  test: {
     name: "strings"
     expr: "sets.equivalent(['foo', 'bar'], ['bar', 'foo'])"
   }
@@ -228,6 +307,29 @@ section: {
   test: {
     name: "maps_heterogeneous_numeric"
     expr: "sets.equivalent([{1: 1}], [{1: 1u}, {1: 1.0}])"
+  }
+  test: {
+    name: "maps_heterogeneous_keys"
+    expr: "sets.equivalent([{'a': 1, 1: 2, 2u: 3, true: 4}], [{true: 4, 2u: 3.0, 1: 2u, 'a': 1.0}])"
+  }
+  test: {
+    name: "maps_heterogeneous_keys_false"
+    expr: "!sets.equivalent([{'a': 1, 1: 2}], [{'a': 1, '1': 2}])"
+  }
+  test: {
+    name: "proto_wrappers"
+    container: "cel.expr.conformance.proto3"
+    expr: "sets.equivalent([TestAllTypes{single_int64_wrapper: 1}.single_int64_wrapper, TestAllTypes{}.single_int64_wrapper], [null, 1u, 1.0])"
+  }
+  test: {
+    name: "proto_wrappers_messages"
+    container: "cel.expr.conformance.proto3"
+    expr: "sets.equivalent([google.protobuf.Int64Value{value: 1}, google.protobuf.Int64Value{}], [0, 1.0])"
+  }
+  test: {
+    name: "proto_wrappers_null_not_default_false"
+    container: "cel.expr.conformance.proto3"
+    expr: "!sets.equivalent([TestAllTypes{}.single_int64_wrapper], [0])"
   }
   test: {
     name: "proto_messages"
@@ -300,6 +402,34 @@ section: {
     expr: "!sets.intersects([1], [1.1, 2u])"
   }
   test: {
+    name: "numeric_negatives"
+    expr: "sets.intersects([-1, -9223372036854775808], [-1.0, 1])"
+  }
+  test: {
+    name: "numeric_negatives_and_uint_false"
+    expr: "!sets.intersects([-1, -9223372036854775808], [18446744073709551615u, 0u, 1])"
+  }
+  test: {
+    name: "numeric_uint64_max"
+    expr: "sets.intersects([18446744073709551615u], [0u, 18446744073709551615u])"
+  }
+  test: {
+    name: "numeric_uint64_max_false"
+    expr: "!sets.intersects([18446744073709551615u], [-1, 9223372036854775807, 18446744073709590000.0])"
+  }
+  test: {
+    name: "double_nan_false"
+    expr: "!sets.intersects([double('NaN')], [double('NaN')])"
+  }
+  test: {
+    name: "double_inf"
+    expr: "sets.intersects([double('Infinity'), 1.0], [double('Infinity'), double('-Infinity')])"
+  }
+  test: {
+    name: "double_inf_false"
+    expr: "!sets.intersects([double('Infinity')], [double('-Infinity'), 9223372036854775807, 18446744073709551615u])"
+  }
+  test: {
     name: "heterogeneous_types_false"
     expr: "!sets.intersects([1], ['1', 2])"
   }
@@ -324,8 +454,31 @@ section: {
     expr: "sets.intersects([{1: 1}], [{1: 1u}, {1: 1.0}])"
   }
   test: {
+    name: "maps_heterogeneous_keys"
+    expr: "sets.intersects([{'a': 1, 1: 2, 2u: 3, true: 4}], [{'b': 5}, {true: 4, 2u: 3.0, 1: 2u, 'a': 1.0}])"
+  }
+  test: {
+    name: "maps_heterogeneous_keys_false"
+    expr: "!sets.intersects([{'a': 1, 1: 2}], [{'a': 1, '1': 2}])"
+  }
+  test: {
     name: "maps_false"
     expr: "!sets.intersects([{'a': 'b'}], [{'c': 'd'}])"
+  }
+  test: {
+    name: "proto_wrappers"
+    container: "cel.expr.conformance.proto3"
+    expr: "sets.intersects([TestAllTypes{single_int64_wrapper: 1}.single_int64_wrapper, TestAllTypes{}.single_int64_wrapper], [2, null])"
+  }
+  test: {
+    name: "proto_wrappers_messages"
+    container: "cel.expr.conformance.proto3"
+    expr: "sets.intersects([google.protobuf.Int64Value{value: 1}], [2u, 1.0])"
+  }
+  test: {
+    name: "proto_wrappers_null_not_default_false"
+    container: "cel.expr.conformance.proto3"
+    expr: "!sets.intersects([TestAllTypes{}.single_int64_wrapper], [0, 0u, 0.0])"
   }
   test: {
     name: "proto_messages"
