@@ -183,12 +183,20 @@ section {
   test {
     name: "ipv4_equals_ipv6"
     expr: "ip('::ffff:c0a8:1') == ip('192.168.0.1')"
-    value: { bool_value: true }
+    eval_error: {
+      errors: {
+        message: "IPv4-mapped IPv6 address is not allowed"
+      }
+    }
   }
   test {
     name: "ipv4_not_equals_ipv6"
     expr: "ip('::ffff:c0a8:1') == ip('192.168.10.1')"
-    value: { bool_value: false }
+    eval_error: {
+      errors: {
+        message: "IPv4-mapped IPv6 address is not allowed"
+      }
+    }
   }
 }
 section {
