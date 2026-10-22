@@ -181,7 +181,7 @@ section {
     value: { bool_value: false }
   }
   test {
-    name: "ipv4_equals_ipv6"
+    name: "invalid_ipv4_equals_ipv6"
     expr: "ip('::ffff:c0a8:1') == ip('192.168.0.1')"
     eval_error: {
       errors: {
@@ -191,12 +191,8 @@ section {
   }
   test {
     name: "ipv4_not_equals_ipv6"
-    expr: "ip('::ffff:c0a8:1') == ip('192.168.10.1')"
-    eval_error: {
-      errors: {
-        message: "IPv4-mapped IPv6 address is not allowed"
-      }
-    }
+    expr: "ip('192.168.0.1') == ip('2001:db8::1')"
+    value: { bool_value: false }
   }
 }
 section {
