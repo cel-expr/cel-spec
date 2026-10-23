@@ -1073,9 +1073,9 @@ interpretation.
 #### Numbers
 
 The numeric types of `int`, `uint`, and `double` are compared as though they
-exist on a continuous number line where two numbers `x` and `y` are equal if
-`!(x < y || x > y)`. Since it is possible to compare numeric types without
-type conversion, CEL uses this definition for `numericEquals` to support
+exist on a continuous number line where two non-`NaN` numbers `x` and `y` are
+equal if `!(x < y || x > y)`. Since it is possible to compare numeric types
+without type conversion, CEL uses this definition for `numericEquals` to support
 comparison across numeric types.
 
 This property of cross-type numeric equality is essential for supporting
@@ -1097,8 +1097,10 @@ json.number in [1, 2, 3]
 int(json.number) in [1, 2, 3]
 ```
 
-The `double` type follows the IEEE 754 standard. Not-a-number (`NaN`) values
-compare as unequal, e.g. `NaN == NaN // false` and `NaN != NaN // true`.
+The `double` type follows the IEEE 754 standard. Negative zero (`-0.0`)
+compares equal to positive zero (`0.0`, as well as `0` and `0u`), and
+not-a-number (`NaN`) values compare as unequal to all values, including
+themselves, e.g. `NaN == NaN // false` and `NaN != NaN // true`.
 
 #### Lists and Maps
 
@@ -1187,7 +1189,9 @@ strings are encoded in UTF-8, strings consequently also obey lexicographic
 ordering of their Unicode code points.
 
 The ordering operators obey the usual algebraic properties, i.e. `e1 <= e2`
-gives the same result as `!(e1 > e2)` as well as `(e1 < e2) || (e1 == e2)`.
+gives the same result as `(e1 < e2) || (e1 == e2)`, and for non-`NaN` values,
+`!(e1 > e2)`. Following IEEE 754, any ordering comparison (`<`, `<=`, `>`,
+`>=`) involving `NaN` evaluates to `false`.
 
 ### Overflow
 
