@@ -82,13 +82,33 @@ section {
     value: { bool_value: false }
   }
   test {
+    name: "not_eq_double_nan_left"
+    expr: "0.0/0.0 == 1.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_eq_double_nan_right"
+    expr: "1.0 == 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
     name: "not_eq_int_double_nan"
     expr: "dyn(1) == 0.0/0.0"
     value: { bool_value: false }
   }
   test {
+    name: "not_eq_double_nan_int"
+    expr: "dyn(0.0/0.0) == 1"
+    value: { bool_value: false }
+  }
+  test {
     name: "not_eq_uint_double_nan"
     expr: "dyn(1u) == 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_eq_double_nan_uint"
+    expr: "dyn(0.0/0.0) == 1u"
     value: { bool_value: false }
   }
   test {
@@ -110,6 +130,36 @@ section {
     name: "not_eq_double_uint"
     expr: "dyn(2.0) == 1u"
     value: { bool_value: false }
+  }
+  test {
+    name: "eq_double_neg_zero"
+    expr: "-0.0 == 0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_double_zero_neg_zero"
+    expr: "0.0 == -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_double_neg_zero_int"
+    expr: "dyn(-0.0) == 0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_int_double_neg_zero"
+    expr: "dyn(0) == -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_double_neg_zero_uint"
+    expr: "dyn(-0.0) == 0u"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_uint_double_neg_zero"
+    expr: "dyn(0u) == -0.0"
+    value: { bool_value: true }
   }
   test {
     name: "eq_string"
@@ -204,6 +254,41 @@ section {
     value: { bool_value: false }
   }
   test {
+    name: "not_eq_list_double_nan"
+    expr: "[0.0/0.0] == [0.0/0.0]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_eq_nested_list_double_nan"
+    expr: "[[0.0/0.0]] == [[0.0/0.0]]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_eq_nested_list_map_double_nan"
+    expr: "[{'k': [0.0/0.0]}] == [{'k': [0.0/0.0]}]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "eq_list_double_neg_zero"
+    expr: "[-0.0] == [0.0]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_list_mixed_type_neg_zero"
+    expr: "[-0.0, 1] == [0, 1.0]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_list_mixed_type_neg_zero_uint"
+    expr: "[-0.0, 1u] == [0u, 1.0]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_nested_list_mixed_type_neg_zero"
+    expr: "[[-0.0, 1]] == [[0, 1u]]"
+    value: { bool_value: true }
+  }
+  test {
     name: "not_eq_list_order"
     expr: "[1, 2, 3] == [1, 3, 2]"
     value: { bool_value: false }
@@ -247,6 +332,36 @@ section {
   test {
     name: "eq_map_double_value"
     expr: "{'k':1.0} == {'k':1e+0}"
+    value: { bool_value: true }
+  }
+  test {
+    name: "not_eq_map_double_nan"
+    expr: "{'k': 0.0/0.0} == {'k': 0.0/0.0}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_eq_nested_map_list_double_nan"
+    expr: "{'k': [0.0/0.0, {'a': 1.0}]} == {'k': [0.0/0.0, {'a': 1.0}]}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "eq_map_double_neg_zero"
+    expr: "{'k': -0.0} == {'k': 0.0}"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_map_mixed_type_neg_zero"
+    expr: "{1: -0.0, 2: 0} == {1: 0, 2: -0.0}"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_map_mixed_type_neg_zero_uint"
+    expr: "{1: -0.0, 2: 0u} == {1: 0u, 2: -0.0}"
+    value: { bool_value: true }
+  }
+  test {
+    name: "eq_nested_map_list_neg_zero"
+    expr: "{'k': [-0.0, {'a': -0.0, 'b': 1}]} == {'k': [0, {'a': 0u, 'b': 1.0}]}"
     value: { bool_value: true }
   }
   test {
@@ -871,13 +986,33 @@ section {
     value: { bool_value: true }
   }
   test {
+    name: "ne_double_nan_left"
+    expr: "0.0/0.0 != 1.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "ne_double_nan_right"
+    expr: "1.0 != 0.0/0.0"
+    value: { bool_value: true }
+  }
+  test {
     name: "not_ne_int_double_nan"
     expr: "dyn(1) != 0.0/0.0"
     value: { bool_value: true }
   }
   test {
+    name: "ne_double_nan_int"
+    expr: "dyn(0.0/0.0) != 1"
+    value: { bool_value: true }
+  }
+  test {
     name: "not_ne_uint_double_nan"
     expr: "dyn(1u) != 0.0/0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "ne_double_nan_uint"
+    expr: "dyn(0.0/0.0) != 1u"
     value: { bool_value: true }
   }
   test {
@@ -903,6 +1038,36 @@ section {
   test {
     name: "not_ne_double_uint"
     expr: "dyn(1u) != 1e+0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_double_neg_zero"
+    expr: "-0.0 != 0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_double_zero_neg_zero"
+    expr: "0.0 != -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_double_neg_zero_int"
+    expr: "dyn(-0.0) != 0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_int_double_neg_zero"
+    expr: "dyn(0) != -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_double_neg_zero_uint"
+    expr: "dyn(-0.0) != 0u"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_uint_double_neg_zero"
+    expr: "dyn(0u) != -0.0"
     value: { bool_value: false }
   }
   test {
@@ -982,6 +1147,41 @@ section {
     value: { bool_value: false }
   }
   test {
+    name: "ne_list_double_nan"
+    expr: "[0.0/0.0] != [0.0/0.0]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "ne_nested_list_double_nan"
+    expr: "[[0.0/0.0]] != [[0.0/0.0]]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "ne_nested_list_map_double_nan"
+    expr: "[{'k': [0.0/0.0]}] != [{'k': [0.0/0.0]}]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "not_ne_list_double_neg_zero"
+    expr: "[-0.0] != [0.0]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_list_mixed_type_neg_zero"
+    expr: "[-0.0, 1] != [0, 1.0]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_list_mixed_type_neg_zero_uint"
+    expr: "[-0.0, 1u] != [0u, 1.0]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_nested_list_mixed_type_neg_zero"
+    expr: "[[-0.0, 1]] != [[0, 1u]]"
+    value: { bool_value: false }
+  }
+  test {
     name: "ne_map_by_value"
     expr: "{'k':'v'} != {'k':'v1'}"
     value: { bool_value: true }
@@ -994,6 +1194,36 @@ section {
   test {
     name: "not_ne_map_int_to_float"
     expr: "{1:1.0} != {1:1.0}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "ne_map_double_nan"
+    expr: "{'k': 0.0/0.0} != {'k': 0.0/0.0}"
+    value: { bool_value: true }
+  }
+  test {
+    name: "ne_nested_map_list_double_nan"
+    expr: "{'k': [0.0/0.0, {'a': 1.0}]} != {'k': [0.0/0.0, {'a': 1.0}]}"
+    value: { bool_value: true }
+  }
+  test {
+    name: "not_ne_map_double_neg_zero"
+    expr: "{'k': -0.0} != {'k': 0.0}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_map_mixed_type_neg_zero"
+    expr: "{1: -0.0, 2: 0} != {1: 0, 2: -0.0}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_map_mixed_type_neg_zero_uint"
+    expr: "{1: -0.0, 2: 0u} != {1: 0u, 2: -0.0}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_ne_nested_map_list_neg_zero"
+    expr: "{'k': [-0.0, {'a': -0.0, 'b': 1}]} != {'k': [0, {'a': 0u, 'b': 1.0}]}"
     value: { bool_value: false }
   }
   test {
@@ -1120,6 +1350,66 @@ section {
     name: "not_lt_double"
     description: "Following IEEE 754, negative zero compares equal to zero"
     expr: "-0.0 < 0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_double_zero_neg_zero"
+    expr: "0.0 < -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_double_neg_zero_int"
+    expr: "dyn(-0.0) < 0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_int_double_neg_zero"
+    expr: "dyn(0) < -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_double_neg_zero_uint"
+    expr: "dyn(-0.0) < 0u"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_uint_double_neg_zero"
+    expr: "dyn(0u) < -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_double_nan"
+    expr: "0.0/0.0 < 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_double_nan_left"
+    expr: "0.0/0.0 < 1.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_double_nan_right"
+    expr: "1.0 < 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_double_nan_int"
+    expr: "dyn(0.0/0.0) < 1"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_int_double_nan"
+    expr: "dyn(1) < 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_double_nan_uint"
+    expr: "dyn(0.0/0.0) < 1u"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lt_dyn_uint_double_nan"
+    expr: "dyn(1u) < 0.0/0.0"
     value: { bool_value: false }
   }
   test {
@@ -1393,6 +1683,71 @@ section {
     value: { bool_value: false }
   }
   test {
+    name: "not_gt_double_neg_zero"
+    expr: "-0.0 > 0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_double_zero_neg_zero"
+    expr: "0.0 > -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_double_neg_zero_int"
+    expr: "dyn(-0.0) > 0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_int_double_neg_zero"
+    expr: "dyn(0) > -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_double_neg_zero_uint"
+    expr: "dyn(-0.0) > 0u"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_uint_double_neg_zero"
+    expr: "dyn(0u) > -0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_double_nan"
+    expr: "0.0/0.0 > 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_double_nan_left"
+    expr: "0.0/0.0 > 1.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_double_nan_right"
+    expr: "1.0 > 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_double_nan_int"
+    expr: "dyn(0.0/0.0) > 1"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_int_double_nan"
+    expr: "dyn(1) > 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_double_nan_uint"
+    expr: "dyn(0.0/0.0) > 1u"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gt_dyn_uint_double_nan"
+    expr: "dyn(1u) > 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
     name: "gt_string_case"
     expr: "'abc' > 'aBc'"
     value: { bool_value: true }
@@ -1642,6 +1997,71 @@ section {
   test {
     name: "not_lte_double_gt"
     expr: "1.0 <= 0.99"
+    value: { bool_value: false }
+  }
+  test {
+    name: "lte_double_neg_zero"
+    expr: "-0.0 <= 0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "lte_double_zero_neg_zero"
+    expr: "0.0 <= -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "lte_dyn_double_neg_zero_int"
+    expr: "dyn(-0.0) <= 0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "lte_dyn_int_double_neg_zero"
+    expr: "dyn(0) <= -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "lte_dyn_double_neg_zero_uint"
+    expr: "dyn(-0.0) <= 0u"
+    value: { bool_value: true }
+  }
+  test {
+    name: "lte_dyn_uint_double_neg_zero"
+    expr: "dyn(0u) <= -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "not_lte_double_nan"
+    expr: "0.0/0.0 <= 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lte_double_nan_left"
+    expr: "0.0/0.0 <= 1.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lte_double_nan_right"
+    expr: "1.0 <= 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lte_dyn_double_nan_int"
+    expr: "dyn(0.0/0.0) <= 1"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lte_dyn_int_double_nan"
+    expr: "dyn(1) <= 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lte_dyn_double_nan_uint"
+    expr: "dyn(0.0/0.0) <= 1u"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_lte_dyn_uint_double_nan"
+    expr: "dyn(1u) <= 0.0/0.0"
     value: { bool_value: false }
   }
   test {
@@ -1907,6 +2327,71 @@ section {
     value: { bool_value: false }
   }
   test {
+    name: "gte_double_neg_zero"
+    expr: "-0.0 >= 0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "gte_double_zero_neg_zero"
+    expr: "0.0 >= -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "gte_dyn_double_neg_zero_int"
+    expr: "dyn(-0.0) >= 0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "gte_dyn_int_double_neg_zero"
+    expr: "dyn(0) >= -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "gte_dyn_double_neg_zero_uint"
+    expr: "dyn(-0.0) >= 0u"
+    value: { bool_value: true }
+  }
+  test {
+    name: "gte_dyn_uint_double_neg_zero"
+    expr: "dyn(0u) >= -0.0"
+    value: { bool_value: true }
+  }
+  test {
+    name: "not_gte_double_nan"
+    expr: "0.0/0.0 >= 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gte_double_nan_left"
+    expr: "0.0/0.0 >= 1.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gte_double_nan_right"
+    expr: "1.0 >= 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gte_dyn_double_nan_int"
+    expr: "dyn(0.0/0.0) >= 1"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gte_dyn_int_double_nan"
+    expr: "dyn(1) >= 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gte_dyn_double_nan_uint"
+    expr: "dyn(0.0/0.0) >= 1u"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_gte_dyn_uint_double_nan"
+    expr: "dyn(1u) >= 0.0/0.0"
+    value: { bool_value: false }
+  }
+  test {
     name: "gte_string_empty"
     expr: "'' >= ''"
     value: { bool_value: true }
@@ -2165,6 +2650,56 @@ section {
     expr: "'elem' in [1u, 'str', 2, b'bytes']"
     value: { bool_value: false }
   }
+  test {
+    name: "nan_not_in_list"
+    expr: "0.0/0.0 in [0.0/0.0]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "nested_list_nan_not_in_list"
+    expr: "[0.0/0.0] in [[0.0/0.0]]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "nested_map_nan_not_in_list"
+    expr: "{'a': 0.0/0.0} in [{'a': 0.0/0.0}]"
+    value: { bool_value: false }
+  }
+  test {
+    name: "neg_zero_in_list_double"
+    expr: "-0.0 in [0.0]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "neg_zero_in_list_int"
+    expr: "-0.0 in [0, 1.0]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "neg_zero_in_list_uint"
+    expr: "-0.0 in [0u, 1.0]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "int_zero_in_list_neg_zero"
+    expr: "0 in [-0.0, 1]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "uint_zero_in_list_neg_zero"
+    expr: "0u in [-0.0, 1u]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "nested_list_neg_zero_in_list"
+    expr: "[-0.0] in [[0.0]]"
+    value: { bool_value: true }
+  }
+  test {
+    name: "nested_map_neg_zero_in_list"
+    expr: "{'a': -0.0} in [{'a': 0.0}]"
+    value: { bool_value: true }
+  }
 }
 section {
   name: "in_map_literal"
@@ -2194,6 +2729,21 @@ section {
     name: "key_in_mixed_key_type_map_cross_type"
     expr: "'key' in {1u:'str', 2:b'bytes'}"
     value: { bool_value: false }
+  }
+  test {
+    name: "nan_not_in_map"
+    expr: "dyn(0.0/0.0) in {1: 'a', 2u: 'b'}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "neg_zero_in_map_int_key"
+    expr: "dyn(-0.0) in {0: 'a', 1u: 'b'}"
+    value: { bool_value: true }
+  }
+  test {
+    name: "neg_zero_in_map_uint_key"
+    expr: "dyn(-0.0) in {0u: 'a', 1: 'b'}"
+    value: { bool_value: true }
   }
 }
 section {
@@ -2365,6 +2915,166 @@ section {
     bindings: {
       key: "x"
       value: { value: { null_value: NULL_VALUE } }
+    }
+  }
+  test {
+    name: "double_nan_eq_self_false"
+    expr: "x == x"
+    value: { bool_value: false }
+    type_env: {
+      name: "x"
+      ident: { type: { primitive: DOUBLE } }
+    }
+    bindings: {
+      key: "x"
+      value: { value: { double_value: nan } }
+    }
+  }
+  test {
+    name: "double_nan_ne_self_true"
+    expr: "x != x"
+    value: { bool_value: true }
+    type_env: {
+      name: "x"
+      ident: { type: { primitive: DOUBLE } }
+    }
+    bindings: {
+      key: "x"
+      value: { value: { double_value: nan } }
+    }
+  }
+  test {
+    name: "list_of_bound_nan_eq_false"
+    expr: "[x] == [x]"
+    value: { bool_value: false }
+    type_env: {
+      name: "x"
+      ident: { type: { primitive: DOUBLE } }
+    }
+    bindings: {
+      key: "x"
+      value: { value: { double_value: nan } }
+    }
+  }
+  test {
+    name: "list_of_bound_nan_ne_true"
+    expr: "[x] != [x]"
+    value: { bool_value: true }
+    type_env: {
+      name: "x"
+      ident: { type: { primitive: DOUBLE } }
+    }
+    bindings: {
+      key: "x"
+      value: { value: { double_value: nan } }
+    }
+  }
+  test {
+    name: "bound_list_nan_eq_self_false"
+    expr: "x == x"
+    value: { bool_value: false }
+    type_env: {
+      name: "x"
+      ident: {
+        type: {
+          list_type: {
+            elem_type: { primitive: DOUBLE }
+          }
+        }
+      }
+    }
+    bindings: {
+      key: "x"
+      value: {
+        value: {
+          list_value {
+            values: { double_value: nan }
+          }
+        }
+      }
+    }
+  }
+  test {
+    name: "bound_list_nan_ne_self_true"
+    expr: "x != x"
+    value: { bool_value: true }
+    type_env: {
+      name: "x"
+      ident: {
+        type: {
+          list_type: {
+            elem_type: { primitive: DOUBLE }
+          }
+        }
+      }
+    }
+    bindings: {
+      key: "x"
+      value: {
+        value: {
+          list_value {
+            values: { double_value: nan }
+          }
+        }
+      }
+    }
+  }
+  test {
+    name: "bound_map_nan_eq_self_false"
+    expr: "x == x"
+    value: { bool_value: false }
+    type_env: {
+      name: "x"
+      ident: {
+        type: {
+          map_type: {
+            key_type: { primitive: STRING }
+            value_type: { primitive: DOUBLE }
+          }
+        }
+      }
+    }
+    bindings: {
+      key: "x"
+      value: {
+        value: {
+          map_value {
+            entries {
+              key: { string_value: "a" }
+              value: { double_value: nan }
+            }
+          }
+        }
+      }
+    }
+  }
+  test {
+    name: "bound_map_nan_ne_self_true"
+    expr: "x != x"
+    value: { bool_value: true }
+    type_env: {
+      name: "x"
+      ident: {
+        type: {
+          map_type: {
+            key_type: { primitive: STRING }
+            value_type: { primitive: DOUBLE }
+          }
+        }
+      }
+    }
+    bindings: {
+      key: "x"
+      value: {
+        value: {
+          map_value {
+            entries {
+              key: { string_value: "a" }
+              value: { double_value: nan }
+            }
+          }
+        }
+      }
     }
   }
 }
