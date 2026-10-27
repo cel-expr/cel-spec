@@ -41,6 +41,40 @@ section {
     value: { string_value: "1000000s" }
   }
   test {
+    name: "toString_duration_max"
+    expr: "string(duration('315576000000s999999999ns'))"
+    value: { string_value: "315576000000.999999999s" }
+  }
+  test {
+    name: "toString_duration_min"
+    expr: "string(duration('-315576000000s999999999ns'))"
+    value: { string_value: "-315576000000.999999999s" }
+  }
+  test {
+    name: "from_string_max"
+    expr: "duration('315576000000s999999999ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] {
+          seconds: 315576000000
+          nanos: 999999999
+        }
+      }
+    }
+  }
+  test {
+    name: "from_string_min"
+    expr: "duration('-315576000000s999999999ns')"
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] {
+          seconds: -315576000000
+          nanos: -999999999
+        }
+      }
+    }
+  }
+  test {
     name: "toType_duration"
     expr: "type(duration('1000000s'))"
     value: { type_value: "google.protobuf.Duration" }
@@ -263,6 +297,26 @@ section {
     expr: "duration('900s') - duration('42s') == duration('858s')"
     value: { bool_value: true }
   }
+  test {
+    name: "add_max_duration_to_min_time"
+    expr: "timestamp('0001-01-01T00:00:00Z') + duration('315537897599s999999999ns') == timestamp('9999-12-31T23:59:59.999999999Z')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "subtract_max_duration_from_max_time"
+    expr: "timestamp('9999-12-31T23:59:59.999999999Z') - duration('315537897599s999999999ns') == timestamp('0001-01-01T00:00:00Z')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "add_duration_to_duration_max"
+    expr: "duration('315576000000s') + duration('999999999ns') == duration('315576000000s999999999ns')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "subtract_duration_from_duration_min"
+    expr: "duration('-315576000000s') - duration('999999999ns') == duration('-315576000000s999999999ns')"
+    value: { bool_value: true }
+  }
 }
 section {
   name: "comparisons"
@@ -432,15 +486,23 @@ section {
   test {
     name: "sub_time_duration_over"
     expr: "timestamp('9999-12-31T23:59:59Z') - timestamp('0001-01-01T00:00:00Z')"
-    eval_error {
-      errors { message: "range" }
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] {
+          seconds: 315537897599
+        }
+      }
     }
   }
   test {
     name: "sub_time_duration_under"
     expr: "timestamp('0001-01-01T00:00:00Z') - timestamp('9999-12-31T23:59:59Z')"
-    eval_error {
-      errors { message: "range" }
+    value {
+      object_value {
+        [type.googleapis.com/google.protobuf.Duration] {
+          seconds: -315537897599
+        }
+      }
     }
   }
 }
@@ -462,6 +524,34 @@ section {
     }
   }
   test {
+    name: "from_string_under_boundary"
+    expr: "duration('-315576000001s')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "from_string_over_boundary"
+    expr: "duration('315576000001s')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "from_string_nanos_under_boundary"
+    expr: "duration('-315576000000s1000000000ns')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "from_string_nanos_over_boundary"
+    expr: "duration('315576000000s1000000000ns')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
     name: "add_under"
     expr: "duration('-200000000000s') + duration('-200000000000s')"
     eval_error {
@@ -476,6 +566,20 @@ section {
     }
   }
   test {
+    name: "add_nanos_under"
+    expr: "duration('-315576000000s999999999ns') + duration('-1ns')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "add_nanos_over"
+    expr: "duration('315576000000s999999999ns') + duration('1ns')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
     name: "sub_under"
     expr: "duration('-200000000000s') - duration('200000000000s')"
     eval_error {
@@ -485,6 +589,20 @@ section {
   test {
     name: "sub_over"
     expr: "duration('200000000000s') - duration('-200000000000s')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "sub_nanos_under"
+    expr: "duration('-315576000000s999999999ns') - duration('1ns')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "sub_nanos_over"
+    expr: "duration('315576000000s999999999ns') - duration('-1ns')"
     eval_error {
       errors { message: "range" }
     }

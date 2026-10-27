@@ -1198,9 +1198,14 @@ raised for conversions which exceed the range of the target type.
 There are a few additional considerations to keep in mind with respect to
 how and when certain types will overflow:
 
-*  Duration values are limited to a single int64 value, or roughly +-290 years.
+*  Duration values are limited to the range supported by
+   `google.protobuf.Duration`: `seconds` in `[-315576000000, 315576000000]` and
+   `nanos` in `[-999999999, 999999999]` (with the same sign as `seconds`), or
+   roughly +-10,000 years.
 *  Timestamp values are limited to the range of values which can be serialized
-   as a string: ["0001-01-01T00:00:00Z", "9999-12-31T23:59:59.999999999Z"].
+   as a string: ["0001-01-01T00:00:00Z", "9999-12-31T23:59:59.999999999Z"]
+   (`seconds` in `[-62135596800, 253402300799]` and `nanos` in
+   `[0, 999999999]`).
 *  Double to int conversions are limited to (minInt, maxInt) non-inclusive.
 
 Note, that whether the minimum or maximum integer value will roundtrip successfully
