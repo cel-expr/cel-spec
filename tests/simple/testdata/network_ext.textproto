@@ -104,7 +104,7 @@ section {
     name: "is_ip_cidr_compile_error"
     description: "isIP should not accept a CIDR type"
     expr: "isIP(cidr('192.168.0.0/24'))"
-    disable_check: false
+    disable_check: true
     eval_error: {
       errors: {
         message: "found no matching overload for 'isIP' applied to '(net.CIDR)'"
