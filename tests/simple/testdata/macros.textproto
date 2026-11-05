@@ -29,7 +29,7 @@ section {
   }
   test {
     name: "list_elem_type_exhaustive"
-    description: "Exists filter is never true, but heterogenous equality ensure the result is false."
+    description: "Exists filter is never true, but heterogeneous equality ensure the result is false."
     expr: "[1, 'foo', 3].exists(e, e == '10')"
     value: { bool_value: false }
   }
