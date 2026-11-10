@@ -54,3 +54,26 @@ use_repo(
     go_deps,
     "org_golang_google_protobuf",
 )
+
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
+
+http_archive(
+    name = "pyyaml",
+    build_file_content = """\
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "yaml",
+    srcs = glob(["yaml/*.py"]),
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+""",
+    dev_dependency = True,
+    sha256 = "9377c381ac3fccad8df73d96b5139ef8b1a2c57a0d913e95ab0a2275d66b5caa",
+    strip_prefix = "pyyaml-6.0.2/lib",
+    urls = ["https://github.com/yaml/pyyaml/archive/refs/tags/6.0.2.tar.gz"],
+)

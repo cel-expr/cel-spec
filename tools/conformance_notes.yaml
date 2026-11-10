@@ -1,0 +1,138 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Human-authored notes and callout blocks for non-conforming suites and
+# skipped sections in the CEL Conformance Coverage Matrix.
+# Every section that resolves to ⚠️ (Skipped) in any runtime column MUST have
+# a matching entry here (either "<suite>/<section>" or "<suite>/*").
+#
+# Entries may provide a row-level `note` and/or per-column notes under
+# `columns` (keyed by column id, "<runtime>/<config>", or "<runtime>"). Column
+# notes are only rendered when that column's cell is not ✅.
+#
+# Only public GitHub issue links may be referenced in this file.
+notes:
+  block_ext/basic:
+    columns:
+      cpp_legacy: "C++ Legacy skips `optional_*` tests (no `optional_type` support)"
+  comparisons/bound:
+    columns:
+      java: "Java skips NaN equality and inequality checks in lists and maps"
+  comparisons/eq_literal:
+    columns:
+      java: "Java skips IEEE 754 negative zero (-0.0) equality comparisons"
+  comparisons/gt_literal:
+    columns:
+      java: "Java skips dynamic NaN and negative zero (-0.0) comparisons"
+  comparisons/gte_literal:
+    columns:
+      java: "Java skips dynamic NaN and negative zero (-0.0) comparisons"
+  comparisons/in_list_literal:
+    columns:
+      java: "Java skips NaN and negative zero (-0.0) in-list membership checks"
+  comparisons/lt_literal:
+    columns:
+      java: "Java skips dynamic NaN and negative zero (-0.0) comparisons"
+  comparisons/lte_literal:
+    columns:
+      java: "Java skips dynamic NaN and negative zero (-0.0) comparisons"
+  comparisons/ne_literal:
+    columns:
+      java: "Java skips IEEE 754 negative zero (-0.0) inequality comparisons"
+  conversions/string:
+    columns:
+      cpp: "C++ skips `double_hard` (shortest-precision double formatting)"
+  fields/qualified_identifier_resolution:
+    columns:
+      go: "Go skips `map_key_float`, `map_key_null`, `map_value_repeat_key`, `map_value_repeat_key_heterogeneous`"
+      cpp: "C++ skips qualified identifier lookups for parsed-only expressions (supported for checked expressions where the checker rewrites the identifier; [cel-cpp#97](https://github.com/cel-expr/cel-cpp/issues/97)) and `map_value_repeat_key_heterogeneous`"
+  lists_ext/*:
+    columns:
+      cpp: "Suite not in the `cel-spec` release pinned by C++"
+  namespace/namespace:
+    columns:
+      cpp: "C++ skips `self_eval_container_lookup` and `self_eval_container_lookup_unchecked` ([cel-cpp#97](https://github.com/cel-expr/cel-cpp/issues/97))"
+  namespace/namespace_shadowing:
+    columns:
+      cpp: "Section not in the `cel-spec` release pinned by C++"
+  namespace/qualified:
+    columns:
+      cpp: "C++ skips `self_eval_qualified_lookup` ([cel-cpp#97](https://github.com/cel-expr/cel-cpp/issues/97))"
+  network_ext/*:
+    columns:
+      go: "Not listed in Go `_ALL_TESTS`"
+      java: "Not listed in Java `_ALL_TESTS`"
+      cpp: "Suite not in the `cel-spec` release pinned by C++"
+  optionals/optionals:
+    columns:
+      go: "Go skips `map_optional_*` selection tests"
+      cpp_legacy: "C++ Legacy does not support `optional_type`"
+  parse/receiver_function_names:
+    columns:
+      cpp: "C++ skips `receiver_function_names`"
+  proto2/set_null:
+    columns:
+      cpp_legacy: "C++ Legacy skips `list_value` and `single_struct` null assignment"
+  proto3/set_null:
+    columns:
+      cpp_legacy: "C++ Legacy skips `list_value` and `single_struct` null assignment"
+  string_ext/reverse:
+    columns:
+      cpp: "Section not in the `cel-spec` release pinned by C++"
+  string_ext/value_errors:
+    columns:
+      go: "Go skips `indexof_out_of_range` and `lastindexof_out_of_range` pending a spec update"
+  timestamps/duration_converters:
+    note: "`get_milliseconds` skipped pending `Duration.getMilliseconds` deprecation ([cel-cpp#93](https://github.com/cel-expr/cel-cpp/issues/93))"
+  timestamps/duration_conversions:
+    note: "Runtimes skip 10,000-year boundary duration string conversions"
+  timestamps/timestamp_arithmetic:
+    note: "Runtimes skip 10,000-year boundary duration arithmetic"
+  timestamps/timestamp_range:
+    note: "Runtimes skip duration range overflow and underflow tests"
+  timestamps/timestamp_selectors_tz:
+    columns:
+      cpp: "C++ skips tests that depend on legacy `US/` time zones"
+  type_deductions/legacy_nullable_types:
+    columns:
+      java: "Java skips null-assignability parameter candidate tests"
+  type_deductions/wrappers:
+    columns:
+      java: "Java skips `wrapper_promotion`"
+  wrappers/duration:
+    note: "Runtimes skip duration range boundary and sign validation tests"
+  wrappers/empty:
+    columns:
+      cpp: "C++ skips `to_json`"
+  wrappers/field_mask:
+    columns:
+      cpp: "C++ skips `to_json`"
+  wrappers/timestamp:
+    note: "Runtimes skip timestamp range boundary and sign validation tests"
+
+callouts:
+  - title: "`network_ext` (Not Enabled / Not Present)"
+    runtimes: "Go (`⬜`), Java (`⬜`), C++ Modern & Legacy (`n/a`)"
+    details: "`network_ext.textproto` defines IP/CIDR network extension tests. It is not listed in `_ALL_TESTS` for Go or Java, and it does not exist in the `cel-spec` release pinned by C++."
+  - title: "`optionals/optionals` & `block_ext/basic` optional tests (Skipped in C++ Legacy)"
+    runtimes: "C++ Legacy (`⚠️`)"
+    details: "The legacy C++ evaluator does not support `optional_type`, so `optionals/optionals` and the `optional_list`, `optional_map`, `optional_map_chained`, and `optional_message` tests in `block_ext/basic` are skipped."
+  - title: "`timestamps/duration_converters` (`getMilliseconds`)"
+    runtimes: "Go, C++ (Modern & Legacy)"
+    tracking: "[cel-cpp#93](https://github.com/cel-expr/cel-cpp/issues/93) (closed)"
+    details: "`timestamps/duration_converters/get_milliseconds` is skipped pending deprecation of `Duration.getMilliseconds` in the spec."
+  - title: "`fields/qualified_identifier_resolution` & `namespace`"
+    runtimes: "Go, C++ (Modern & Legacy)"
+    tracking: "[cel-cpp#97](https://github.com/cel-expr/cel-cpp/issues/97)"
+    details: "C++ does not support qualified identifier lookups within containers for parsed-only expressions, though checked expressions work because the type checker rewrites the identifier (`qualified_ident`, `map_field_select`, `ident_with_longest_prefix_check`, `qualified_identifier_resolution_unchecked`, `namespace/qualified/self_eval_qualified_lookup`, and `namespace/namespace/self_eval_container_lookup*`); C++ also skips `map_value_repeat_key_heterogeneous`. Go skips `map_key_float`, `map_key_null`, `map_value_repeat_key`, and `map_value_repeat_key_heterogeneous`."

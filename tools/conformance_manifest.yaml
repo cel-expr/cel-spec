@@ -1,0 +1,306 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Expected-matrix manifest declaring the required (runtime, config) columns
+# and their baseline disabled suites and configured skips.
+#
+# Each column mirrors the conformance configuration checked in at the latest
+# GitHub release tag of that runtime:
+#   runtime_version: Release tag of the runtime.
+#   spec_commit:     cel-spec revision rendered in the Spec Commit row. Counts
+#                    are always computed against cel-spec HEAD testdata; the
+#                    pinned cel-spec release is noted in parentheses.
+#   disabled_suites: Testdata files present at the pin but not listed in the
+#                    runtime's `_ALL_TESTS` (rendered as ⬜).
+#   absent_suites:   Testdata files that do not exist at the pinned cel-spec
+#                    (rendered as `n/a`).
+#   absent_sections: "<suite>/<section>" keys that do not exist at the pinned
+#                    cel-spec (rendered as `n/a`).
+#   configured_skips: The runtime's skip list at the release tag. Entries that
+#                    reference tests no longer present at cel-spec HEAD are
+#                    omitted (and called out in comments) because they cannot
+#                    affect the matrix.
+#
+# Sections and individual tests present in testdata .textproto files that have
+# been removed or deprecated from the CEL specification and are excluded from
+# the matrix across all columns:
+excluded_sections:
+  - enums/strong_proto2
+  - enums/strong_proto3
+excluded_tests:
+  - basic/functions/unbound_is_runtime_error
+
+columns:
+  # https://github.com/cel-expr/cel-go/blob/v0.32.0/conformance/BUILD.bazel
+  # cel-spec pinned via git_override to ba58ae5 (BCR 0.25.2) in MODULE.bazel.
+  - id: go
+    runtime: go
+    config: default
+    label: "Go"
+    build_file: "third_party/cel/go/conformance/BUILD"
+    build_skip_var: "_TESTS_TO_SKIP"
+    build_tests_var: "_ALL_TESTS"
+    # Skips present in the workspace's older cel-go import that were fixed
+    # by v0.32.0:
+    ignored_build_skips:
+      - macros/exists/list_elem_type_exhaustive,map_key_type_exhaustive
+      - macros/map/map_extract_keys
+      - string_ext/format
+    runtime_version: "v0.32.0"
+    spec_commit: "HEAD (pinned: ba58ae5)"
+    disabled_suites:
+      - network_ext.textproto
+      - block_ext.textproto
+      - lists_ext.textproto
+      - macros2.textproto
+      - sets_ext.textproto
+      - type_deduction.textproto
+    configured_skips:
+      - fields/qualified_identifier_resolution/map_key_float,map_key_null,map_value_repeat_key
+      - fields/qualified_identifier_resolution/map_value_repeat_key_heterogeneous
+      - timestamps/duration_converters/get_milliseconds
+      - optionals/optionals/map_optional_select_has
+      - optionals/optionals/map_optional_none_select
+      - optionals/optionals/map_optional_of_select
+      - optionals/optionals/map_optional_of_select_has
+      - timestamps/duration_conversions/from_string_max
+      - timestamps/duration_conversions/from_string_min
+      - timestamps/duration_conversions/toString_duration_max
+      - timestamps/duration_conversions/toString_duration_min
+      - timestamps/timestamp_arithmetic/add_duration_to_duration_max
+      - timestamps/timestamp_arithmetic/add_max_duration_to_min_time
+      - timestamps/timestamp_arithmetic/subtract_duration_from_duration_min
+      - timestamps/timestamp_arithmetic/subtract_max_duration_from_max_time
+      - timestamps/timestamp_range/sub_time_duration_over
+      - timestamps/timestamp_range/sub_time_duration_under
+      - wrappers/duration/max_value
+      - wrappers/duration/min_value
+      - wrappers/duration/nanos_over
+      - wrappers/duration/nanos_under
+      - wrappers/duration/negative_seconds_positive_nanos
+      - wrappers/duration/positive_seconds_negative_nanos
+      - wrappers/duration/seconds_over
+      - wrappers/duration/seconds_under
+      - wrappers/timestamp/nanos_over
+      - wrappers/timestamp/nanos_under
+      - wrappers/timestamp/negative_seconds_negative_nanos
+      - wrappers/timestamp/seconds_over
+      - wrappers/timestamp/seconds_under
+      - string_ext/value_errors/indexof_out_of_range,lastindexof_out_of_range
+  # https://github.com/cel-expr/cel-cpp/blob/v0.16.1/conformance/BUILD
+  # Target `conformance_checked` (modern = True, `_TESTS_TO_SKIP_MODERN`).
+  # cel-spec pinned to BCR 0.25.1 in MODULE.bazel.
+  - id: cpp_modern
+    runtime: cpp
+    config: modern
+    label: "C++ (Modern)"
+    build_file: "third_party/cel/cpp/conformance/BUILD"
+    build_skip_var: "_TESTS_TO_SKIP_MODERN"
+    build_tests_var: "_ALL_TESTS"
+    runtime_version: "v0.16.1"
+    spec_commit: "HEAD (pinned: 0.25.1)"
+    absent_suites:
+      - lists_ext.textproto
+      - network_ext.textproto
+    absent_sections:
+      - namespace/namespace_shadowing
+      - string_ext/reverse
+    # Omitted from configured_skips:
+    #   enums/legacy_proto2/select_big,select_neg (no matching tests in
+    #     enums.textproto)
+    #   namespace/namespace_shadowing/basic and
+    #     namespace/namespace_shadowing/comprehension_shadowing_namespaced_selector_disambiguation
+    #     (already excluded for this column via absent_sections above)
+    configured_skips:
+      - timestamps/duration_converters/get_milliseconds
+      - timestamps/timestamp_arithmetic/add_duration_to_duration_max
+      - timestamps/timestamp_arithmetic/subtract_duration_from_duration_min
+      - timestamps/timestamp_arithmetic/subtract_max_duration_from_max_time
+      - timestamps/timestamp_range/sub_time_duration_over
+      - timestamps/timestamp_range/sub_time_duration_under
+      - wrappers/duration/nanos_over
+      - wrappers/duration/nanos_under
+      - wrappers/duration/negative_seconds_positive_nanos
+      - wrappers/duration/positive_seconds_negative_nanos
+      - wrappers/duration/seconds_over
+      - wrappers/duration/seconds_under
+      - wrappers/timestamp/nanos_over
+      - wrappers/timestamp/nanos_under
+      - wrappers/timestamp/negative_seconds_negative_nanos
+      - wrappers/timestamp/seconds_over
+      - wrappers/timestamp/seconds_under
+      - fields/qualified_identifier_resolution/qualified_ident,map_field_select,ident_with_longest_prefix_check,qualified_identifier_resolution_unchecked
+      - namespace/qualified/self_eval_qualified_lookup
+      - namespace/namespace/self_eval_container_lookup,self_eval_container_lookup_unchecked
+      - wrappers/field_mask/to_json
+      - wrappers/empty/to_json
+      - fields/qualified_identifier_resolution/map_value_repeat_key_heterogeneous
+      - parse/receiver_function_names
+      - timestamps/timestamp_selectors_tz/getDayOfMonth_name_pos
+      - timestamps/timestamp_selectors_tz/getDayOfYear
+      - conversions/string/double_hard
+      - type_deductions/type_decay/type_list_decay
+      - type_deductions/type_decay/type_ternary_decay
+      - type_deductions/type_decay/type_nested_list_decay
+      - type_deductions/type_decay/type_free_param_list_concat
+  # https://github.com/cel-expr/cel-cpp/blob/v0.16.1/conformance/BUILD
+  # Target `conformance_legacy_checked` (modern = False,
+  # `_TESTS_TO_SKIP_LEGACY` = `_TESTS_TO_SKIP` + legacy-only entries).
+  - id: cpp_legacy
+    runtime: cpp
+    config: legacy
+    label: "C++ (Legacy)"
+    build_file: "third_party/cel/cpp/conformance/BUILD"
+    build_skip_var: "_TESTS_TO_SKIP_LEGACY"
+    build_tests_var: "_ALL_TESTS"
+    runtime_version: "v0.16.1"
+    spec_commit: "HEAD (pinned: 0.25.1)"
+    absent_suites:
+      - lists_ext.textproto
+      - network_ext.textproto
+    absent_sections:
+      - namespace/namespace_shadowing
+      - string_ext/reverse
+    configured_skips:
+      - timestamps/duration_converters/get_milliseconds
+      - timestamps/timestamp_arithmetic/add_duration_to_duration_max
+      - timestamps/timestamp_arithmetic/subtract_duration_from_duration_min
+      - timestamps/timestamp_arithmetic/subtract_max_duration_from_max_time
+      - timestamps/timestamp_range/sub_time_duration_over
+      - timestamps/timestamp_range/sub_time_duration_under
+      - wrappers/duration/nanos_over
+      - wrappers/duration/nanos_under
+      - wrappers/duration/negative_seconds_positive_nanos
+      - wrappers/duration/positive_seconds_negative_nanos
+      - wrappers/duration/seconds_over
+      - wrappers/duration/seconds_under
+      - wrappers/timestamp/nanos_over
+      - wrappers/timestamp/nanos_under
+      - wrappers/timestamp/negative_seconds_negative_nanos
+      - wrappers/timestamp/seconds_over
+      - wrappers/timestamp/seconds_under
+      - fields/qualified_identifier_resolution/qualified_ident,map_field_select,ident_with_longest_prefix_check,qualified_identifier_resolution_unchecked
+      - namespace/qualified/self_eval_qualified_lookup
+      - namespace/namespace/self_eval_container_lookup,self_eval_container_lookup_unchecked
+      - wrappers/field_mask/to_json
+      - wrappers/empty/to_json
+      - fields/qualified_identifier_resolution/map_value_repeat_key_heterogeneous
+      - parse/receiver_function_names
+      - timestamps/timestamp_selectors_tz/getDayOfMonth_name_pos
+      - timestamps/timestamp_selectors_tz/getDayOfYear
+      - conversions/string/double_hard
+      # Legacy-only entries.
+      - optionals/optionals
+      - proto2/set_null/list_value
+      - proto2/set_null/single_struct
+      - proto3/set_null/list_value
+      - proto3/set_null/single_struct
+      - block_ext/basic/optional_list
+      - block_ext/basic/optional_map
+      - block_ext/basic/optional_map_chained
+      - block_ext/basic/optional_message
+      - type_deductions/type_decay/type_list_decay
+      - type_deductions/type_decay/type_ternary_decay
+      - type_deductions/type_decay/type_nested_list_decay
+      - type_deductions/type_decay/type_free_param_list_concat
+  # https://github.com/cel-expr/cel-java/blob/v0.14.0/conformance/src/test/java/dev/cel/conformance/BUILD.bazel
+  # Planner runtime (`_TESTS_TO_SKIP_PLANNER`); the legacy runtime is excluded.
+  # cel-spec pinned to BCR 0.25.2 in MODULE.bazel.
+  - id: java
+    runtime: java
+    config: default
+    label: "Java"
+    build_file: "third_party/java/cel/conformance/src/test/java/dev/cel/conformance/BUILD"
+    build_skip_var: "_TESTS_TO_SKIP_PLANNER"
+    build_tests_var: "_ALL_TESTS"
+    runtime_version: "v0.14.0"
+    spec_commit: "HEAD (pinned: 0.25.2)"
+    disabled_suites:
+      - network_ext.textproto
+      - sets_ext.textproto
+    configured_skips:
+      - comparisons/bound/bound_list_nan_eq_self_false
+      - comparisons/bound/bound_list_nan_ne_self_true
+      - comparisons/bound/bound_map_nan_eq_self_false
+      - comparisons/bound/bound_map_nan_ne_self_true
+      - comparisons/eq_literal/eq_double_neg_zero_int
+      - comparisons/eq_literal/eq_double_neg_zero_uint
+      - comparisons/eq_literal/eq_int_double_neg_zero
+      - comparisons/eq_literal/eq_list_mixed_type_neg_zero
+      - comparisons/eq_literal/eq_list_mixed_type_neg_zero_uint
+      - comparisons/eq_literal/eq_map_mixed_type_neg_zero
+      - comparisons/eq_literal/eq_map_mixed_type_neg_zero_uint
+      - comparisons/eq_literal/eq_nested_list_mixed_type_neg_zero
+      - comparisons/eq_literal/eq_nested_map_list_neg_zero
+      - comparisons/eq_literal/eq_uint_double_neg_zero
+      - comparisons/gt_literal/not_gt_dyn_double_nan_int
+      - comparisons/gt_literal/not_gt_dyn_double_nan_uint
+      - comparisons/gt_literal/not_gt_dyn_int_double_neg_zero
+      - comparisons/gt_literal/not_gt_dyn_uint_double_neg_zero
+      - comparisons/gte_literal/gte_dyn_double_neg_zero_int
+      - comparisons/gte_literal/gte_dyn_double_neg_zero_uint
+      - comparisons/gte_literal/not_gte_dyn_double_nan_int
+      - comparisons/gte_literal/not_gte_dyn_double_nan_uint
+      - comparisons/in_list_literal/int_zero_in_list_neg_zero
+      - comparisons/in_list_literal/nan_not_in_list
+      - comparisons/in_list_literal/neg_zero_in_list_int
+      - comparisons/in_list_literal/neg_zero_in_list_uint
+      - comparisons/in_list_literal/nested_list_nan_not_in_list
+      - comparisons/in_list_literal/nested_list_neg_zero_in_list
+      - comparisons/in_list_literal/nested_map_nan_not_in_list
+      - comparisons/in_list_literal/nested_map_neg_zero_in_list
+      - comparisons/in_list_literal/uint_zero_in_list_neg_zero
+      - comparisons/lt_literal/not_lt_dyn_double_neg_zero_int
+      - comparisons/lt_literal/not_lt_dyn_double_neg_zero_uint
+      - comparisons/lt_literal/not_lt_dyn_int_double_nan
+      - comparisons/lt_literal/not_lt_dyn_uint_double_nan
+      - comparisons/lte_literal/lte_dyn_int_double_neg_zero
+      - comparisons/lte_literal/lte_dyn_uint_double_neg_zero
+      - comparisons/lte_literal/not_lte_dyn_int_double_nan
+      - comparisons/lte_literal/not_lte_dyn_uint_double_nan
+      - comparisons/ne_literal/not_ne_double_neg_zero_int
+      - comparisons/ne_literal/not_ne_double_neg_zero_uint
+      - comparisons/ne_literal/not_ne_int_double_neg_zero
+      - comparisons/ne_literal/not_ne_list_mixed_type_neg_zero
+      - comparisons/ne_literal/not_ne_list_mixed_type_neg_zero_uint
+      - comparisons/ne_literal/not_ne_map_mixed_type_neg_zero
+      - comparisons/ne_literal/not_ne_map_mixed_type_neg_zero_uint
+      - comparisons/ne_literal/not_ne_nested_list_mixed_type_neg_zero
+      - comparisons/ne_literal/not_ne_nested_map_list_neg_zero
+      - comparisons/ne_literal/not_ne_uint_double_neg_zero
+      - timestamps/duration_conversions/from_string_max
+      - timestamps/duration_conversions/from_string_min
+      - timestamps/duration_conversions/toString_duration_max
+      - timestamps/duration_conversions/toString_duration_min
+      - timestamps/timestamp_arithmetic/add_duration_to_duration_max
+      - timestamps/timestamp_arithmetic/subtract_duration_from_duration_min
+      - timestamps/timestamp_range/sub_time_duration_over
+      - timestamps/timestamp_range/sub_time_duration_under
+      - wrappers/duration/nanos_over
+      - wrappers/duration/nanos_under
+      - wrappers/duration/negative_seconds_positive_nanos
+      - wrappers/duration/positive_seconds_negative_nanos
+      - wrappers/duration/seconds_over
+      - wrappers/duration/seconds_under
+      - wrappers/timestamp/nanos_over
+      - wrappers/timestamp/nanos_under
+      - wrappers/timestamp/negative_seconds_negative_nanos
+      - wrappers/timestamp/seconds_over
+      - wrappers/timestamp/seconds_under
+      - type_deductions/wrappers/wrapper_promotion
+      - type_deductions/legacy_nullable_types/null_assignable_to_message_parameter_candidate
+      - type_deductions/legacy_nullable_types/null_assignable_to_abstract_parameter_candidate
+      - type_deductions/legacy_nullable_types/null_assignable_to_duration_parameter_candidate
+      - type_deductions/legacy_nullable_types/null_assignable_to_timestamp_parameter_candidate
+      - type_deductions/type_decay

@@ -1,0 +1,64 @@
+name: Conformance Matrix
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "doc/conformance.md"
+      - "tools/**"
+      - "tests/simple/testdata/**"
+      - "proto/cel/expr/**"
+      - "MODULE.bazel"
+      - ".bazelversion"
+      - ".github/workflows/conformance_matrix.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "doc/conformance.md"
+      - "tools/**"
+      - "tests/simple/testdata/**"
+      - "proto/cel/expr/**"
+      - "MODULE.bazel"
+      - ".bazelversion"
+      - ".github/workflows/conformance_matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-conformance-matrix:
+    name: Verify Conformance Matrix & Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@4fd964a13a440a8aeb0be47350db2fc640f19ca8 # 0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Run conformance matrix unit & consistency tests
+        run: bazelisk test //tools:generate_conformance_matrix_test --test_output=errors
+
+      - name: Verify doc/conformance.md consistency and validation gates
+        run: |
+          bazelisk run //tools:generate_conformance_matrix -- \
+            --manifest tools/conformance_manifest.yaml \
+            --notes tools/conformance_notes.yaml \
+            --testdata_dir tests/simple/testdata \
+            --strict_manifest \
+            --baseline_markdown doc/conformance.md \
+            --check_consistency doc/conformance.md

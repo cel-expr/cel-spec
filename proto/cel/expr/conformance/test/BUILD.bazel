@@ -1,6 +1,7 @@
-package(default_visibility = ["//visibility:public"])
-
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+package(default_visibility = ["//visibility:public"])
 
 ##############################################################################
 # Common
@@ -78,5 +79,19 @@ java_proto_library(
 
 java_proto_library(
     name = "suite_java_proto",
+    deps = [":suite_proto"],
+)
+
+##############################################################################
+## Python
+##############################################################################
+
+py_proto_library(
+    name = "simple_py_pb2",
+    deps = [":simple_proto"],
+)
+
+py_proto_library(
+    name = "suite_py_pb2",
     deps = [":suite_proto"],
 )

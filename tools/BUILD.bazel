@@ -1,0 +1,44 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+exports_files([
+    "conformance_manifest.yaml",
+    "conformance_notes.yaml",
+])
+
+py_library(
+    name = "generate_conformance_matrix_lib",
+    srcs = ["generate_conformance_matrix.py"],
+    imports = ["."],
+    deps = [
+        "//proto/cel/expr/conformance/proto2:test_all_types_py_pb2",
+        "//proto/cel/expr/conformance/proto3:test_all_types_py_pb2",
+        "//proto/cel/expr/conformance/test:simple_py_pb2",
+        "@com_google_protobuf//:protobuf_python",
+        "@pyyaml//:yaml",
+    ],
+)
+
+py_binary(
+    name = "generate_conformance_matrix",
+    srcs = ["generate_conformance_matrix.py"],
+    legacy_create_init = 0,
+    main = "generate_conformance_matrix.py",
+    deps = [":generate_conformance_matrix_lib"],
+)
+
+py_test(
+    name = "generate_conformance_matrix_test",
+    srcs = ["generate_conformance_matrix_test.py"],
+    data = [
+        "conformance_manifest.yaml",
+        "conformance_notes.yaml",
+        "//doc:conformance.md",
+        "//tests/simple:simple_testdata",
+    ],
+    legacy_create_init = 0,
+    deps = [":generate_conformance_matrix_lib"],
+)
