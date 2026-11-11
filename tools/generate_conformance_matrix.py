@@ -15,35 +15,51 @@
 
 import argparse
 import ast
-from collections.abc import Iterator, Mapping, Sequence, Set
+from collections.abc import Iterable, Iterator, Mapping, Sequence, Set
 import dataclasses
 import difflib
+import itertools
 import json
 import os
 import re
 import sys
+import textwrap
+import types
 from typing import Any
 
-import yaml
-
-from google.protobuf import text_format
-from cel.expr.conformance.proto2 import test_all_types_extensions_pb2 as _proto2_ext
+from cel.expr.conformance.proto2 import test_all_types_extensions_pb2 as _ext
 from cel.expr.conformance.proto2 import test_all_types_pb2 as _proto2
 from cel.expr.conformance.proto3 import test_all_types_pb2 as _proto3
 from cel.expr.conformance.test import simple_pb2
+from google.protobuf import text_format
+import yaml
 
 # Register extension and Any message descriptors in the default pool.
-_ = (_proto2_ext.DESCRIPTOR, _proto2.DESCRIPTOR, _proto3.DESCRIPTOR)
+_ = (_ext.DESCRIPTOR, _proto2.DESCRIPTOR, _proto3.DESCRIPTOR)
 
 GITHUB_TESTDATA_BASE_URL = (
-    "https://github.com/cel-expr/cel-spec/blob/master/tests/simple/testdata"
+    "https://github.com/cel-expr/cel-conformance/blob/main/"
+    "tests/simple/testdata"
 )
 
 VALID_TEST_STATUSES = frozenset(
     {"pass", "fail", "skipped", "not_enabled", "not_run"}
 )
 
-_RUNTIME_LABELS = {"go": "Go", "cpp": "C++", "java": "Java"}
+_RUNTIME_LABELS = types.MappingProxyType(
+    {"go": "Go", "cpp": "C++", "java": "Java"}
+)
+_KNOWN_FILENAME_TO_SUITE = types.MappingProxyType(
+    {"type_deduction.textproto": "type_deductions"}
+)
+_KNOWN_SUITE_TO_FILENAME = types.MappingProxyType({
+    suite_name: filename
+    for filename, suite_name in _KNOWN_FILENAME_TO_SUITE.items()
+})
+_VALID_CALLOUT_KEYS = frozenset({"title", "runtimes", "tracking", "details"})
+_NEXT_COL_RE = re.compile(r"^  - id:\s*")
+_ANY_COL_RE = re.compile(r"^\s*- id:\s*")
+_UNESCAPED_PIPE_RE = re.compile(r"(?<!\\)\|")
 
 # A section name and its ordered test names from a .textproto suite file.
 SectionCorpus = tuple[str, Sequence[str]]
@@ -72,6 +88,8 @@ class ManifestColumn:
     build_skip_var: Variable name in build_file defining the skip list.
     build_tests_var: Variable name in build_file defining the test suites list.
     ignored_build_skips: Build skips ignored during manifest synchronization.
+    ignored_disabled_suites: Suite filenames omitted from build_tests_var that
+      should not be synced into disabled_suites.
   """
 
   id: str
@@ -95,6 +113,7 @@ class ManifestColumn:
   build_skip_var: str = ""
   build_tests_var: str = ""
   ignored_build_skips: tuple[str, ...] = ()
+  ignored_disabled_suites: tuple[str, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -152,7 +171,15 @@ class SuiteReport:
     )
 
   def get_section(self, section_name: str) -> SectionReport | None:
-    """Returns the SectionReport for section_name, or None if not found."""
+    """Returns the SectionReport for section_name, or None if not found.
+
+    Args:
+      section_name: Name of the test section to look up within this suite.
+
+    Returns:
+      The matching SectionReport if present in this suite, or None if no
+      section with section_name exists.
+    """
     return self._section_map.get(section_name)
 
 
@@ -185,7 +212,15 @@ class ConformanceReport:
     object.__setattr__(self, "_suite_map", {s.name: s for s in self.suites})
 
   def get_suite(self, suite_name: str) -> SuiteReport | None:
-    """Returns the SuiteReport for suite_name, or None if not found."""
+    """Returns the SuiteReport for suite_name, or None if not found.
+
+    Args:
+      suite_name: Name of the test suite to look up within this report.
+
+    Returns:
+      The matching SuiteReport if present in this report, or None if no suite
+      with suite_name exists.
+    """
     return self._suite_map.get(suite_name)
 
 
@@ -208,6 +243,23 @@ class CellStatus:
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
+class Callout:
+  """Represents a callout block rendered below the conformance matrix.
+
+  Attributes:
+    title: Required heading displayed at the top of the callout block.
+    runtimes: Optional comma-separated summary of affected runtimes.
+    tracking: Optional public tracking link or issue reference.
+    details: Optional detailed explanation for the callout.
+  """
+
+  title: str
+  runtimes: str = ""
+  tracking: str = ""
+  details: str = ""
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
 class NotesConfig:
   """Parsed conformance_notes.yaml configuration.
 
@@ -215,14 +267,13 @@ class NotesConfig:
     notes: Mapping from 'suite/section' (or 'suite/*') to shared note text.
     allowed_regressions: Mapping from row key to set of column IDs (or {'*'})
       allowed to regress.
-    callouts: List of callout block dictionaries with 'title' and optional
-      'runtimes', 'tracking', and 'details' keys.
+    callouts: Tuple of Callout blocks rendered below the conformance matrix.
     column_notes: Mapping from (row_key, column_key) to column-specific note.
   """
 
   notes: dict[str, str]
   allowed_regressions: dict[str, set[str]]
-  callouts: list[dict[str, str]]
+  callouts: tuple[Callout, ...] = ()
   column_notes: dict[tuple[str, str], str] = dataclasses.field(
       default_factory=dict
   )
@@ -349,6 +400,9 @@ def load_manifest(path: str) -> list[ManifestColumn]:
             ignored_build_skips=tuple(
                 str(s) for s in item.get("ignored_build_skips") or []
             ),
+            ignored_disabled_suites=tuple(
+                str(s) for s in item.get("ignored_disabled_suites") or []
+            ),
         )
     )
   return columns
@@ -373,6 +427,16 @@ def extract_build_skip_list(build_path: str, var_name: str) -> list[str]:
   env: dict[str, list[str]] = {}
 
   def _eval_list_expr(node: ast.AST) -> list[str]:
+    """Evaluates a Starlark string-list AST expression using parsed bindings.
+
+    Args:
+      node: AST node representing a list literal, variable name, or `+` list
+        concatenation expression.
+
+    Returns:
+      Evaluated list of string literals, or an empty list if node is an
+      unsupported expression or references an unknown variable.
+    """
     if isinstance(node, ast.List):
       return [
           elt.value
@@ -411,16 +475,50 @@ def _iter_path_prefixes(path: str) -> Iterator[str]:
   Yields:
     Progressively longer slash-delimited prefixes of path, ending with path.
   """
-  slash_idx = path.find("/")
-  while slash_idx != -1:
-    yield path[:slash_idx]
-    slash_idx = path.find("/", slash_idx + 1)
-  yield path
+  if not path:
+    return
+  yield from itertools.accumulate(path.split("/"), lambda a, b: f"{a}/{b}")
 
 
 def _is_test_path_skipped(path: str, skip_set: Set[str]) -> bool:
-  """Returns True if path or any slash-delimited prefix is in skip_set."""
+  """Returns True if path or any slash-delimited prefix is in skip_set.
+
+  Args:
+    path: Full slash-delimited test path (e.g. 'suite/section/test').
+    skip_set: Set of expanded skip patterns to match against path prefixes.
+
+  Returns:
+    True if path or any slash-delimited ancestor prefix appears in skip_set.
+  """
   return any(prefix in skip_set for prefix in _iter_path_prefixes(path))
+
+
+def _format_yaml_scalar(entry: str) -> str:
+  """Formats a list entry as a single-line YAML scalar via PyYAML.
+
+  Args:
+    entry: Raw string item to emit as a YAML sequence element.
+
+  Returns:
+    Single-line YAML scalar representation of entry.
+  """
+  dumped = yaml.safe_dump(
+      [entry],
+      default_flow_style=False,
+      allow_unicode=True,
+      width=10000,
+  )
+  lines = dumped.splitlines()
+  if len(lines) != 1 or not lines[0].startswith("- "):
+    dumped = yaml.safe_dump(
+        [entry],
+        default_flow_style=False,
+        allow_unicode=True,
+        width=10000,
+        default_style='"',
+    )
+    lines = dumped.splitlines()
+  return lines[0][2:]
 
 
 def _insert_manifest_skips(
@@ -441,56 +539,102 @@ def _insert_manifest_skips(
   """
   lines = text.splitlines(keepends=True)
   insertions: list[tuple[int, list[str]]] = []
-  target_key_re = re.compile(rf"^    {re.escape(key_name)}:(.*)$")
+  target_key_re = re.compile(rf"^(\s*){re.escape(key_name)}:(.*)$")
 
   for col_id, new_entries in new_entries_for_col.items():
     if not new_entries:
       continue
-    id_pattern = re.compile(rf"^  - id:\s*{re.escape(col_id)}\b")
+    id_pattern = re.compile(rf"^(\s*)- id:\s*{re.escape(col_id)}\b")
     id_idx = None
+    col_indent = 2
     for idx, line in enumerate(lines):
-      if id_pattern.match(line):
+      id_match = id_pattern.match(line)
+      if id_match:
         id_idx = idx
+        col_indent = len(id_match.group(1))
         break
     if id_idx is None:
       continue
 
-    next_col_pattern = re.compile(r"^  - id:\s*")
     next_id_idx = len(lines)
     for idx in range(id_idx + 1, len(lines)):
-      if next_col_pattern.match(lines[idx]):
+      line = lines[idx]
+      if _NEXT_COL_RE.match(line) or (
+          _ANY_COL_RE.match(line)
+          and (len(line) - len(line.lstrip(" "))) <= col_indent
+      ):
         next_id_idx = idx
         break
 
     header_idx = None
-    for idx in range(id_idx, next_id_idx):
-      if target_key_re.match(lines[idx]):
+    for idx in range(id_idx + 1, next_id_idx):
+      key_match = target_key_re.match(lines[idx])
+      if key_match and len(key_match.group(1)) > col_indent:
         header_idx = idx
         break
 
-    to_insert = [f"      - {entry}\n" for entry in new_entries]
     if header_idx is not None:
+      key_indent = len(lines[header_idx]) - len(lines[header_idx].lstrip(" "))
+      item_indent: int | None = None
       last_entry_idx = None
       for idx in range(header_idx + 1, next_id_idx):
         line = lines[idx]
-        if line.startswith("      - "):
+        stripped = line.lstrip(" ")
+        if not stripped or stripped.startswith("#"):
+          continue
+        indent = len(line) - len(stripped)
+        if indent >= key_indent and stripped.startswith("- "):
+          if item_indent is None:
+            item_indent = indent
           last_entry_idx = idx
-        elif line.strip() and not line.lstrip().startswith("#"):
-          indent = len(line) - len(line.lstrip(" "))
-          if indent <= 4:
-            break
+        elif indent <= key_indent:
+          break
+      effective_item_indent = (
+          item_indent if item_indent is not None else key_indent + 2
+      )
+      item_prefix = (" " * effective_item_indent) + "- "
+      to_insert = [
+          f"{item_prefix}{_format_yaml_scalar(entry)}\n"
+          for entry in new_entries
+      ]
       if last_entry_idx is not None:
         if not lines[last_entry_idx].endswith("\n"):
           lines[last_entry_idx] += "\n"
         insertions.append((last_entry_idx + 1, to_insert))
       else:
-        lines[header_idx] = "    " + key_name + ":\n"
+        lines[header_idx] = (" " * key_indent) + key_name + ":\n"
         insertions.append((header_idx + 1, to_insert))
     else:
-      if next_id_idx > 0 and not lines[next_id_idx - 1].endswith("\n"):
-        lines[next_id_idx - 1] += "\n"
-      full_insert = ["    " + key_name + ":\n"] + to_insert
-      insertions.append((next_id_idx, full_insert))
+      key_indent = col_indent + 2
+      for idx in range(id_idx + 1, next_id_idx):
+        line = lines[idx]
+        stripped = line.lstrip(" ")
+        if not stripped or stripped.startswith("#"):
+          continue
+        indent = len(line) - len(stripped)
+        if indent > col_indent and not stripped.startswith("- "):
+          key_indent = indent
+          break
+      insert_at = next_id_idx
+      while insert_at > id_idx + 1:
+        prev = lines[insert_at - 1]
+        prev_stripped = prev.lstrip(" ")
+        if not prev_stripped or (
+            prev_stripped.startswith("#")
+            and (len(prev) - len(prev_stripped)) <= col_indent
+        ):
+          insert_at -= 1
+        else:
+          break
+      item_prefix = (" " * (key_indent + 2)) + "- "
+      to_insert = [
+          f"{item_prefix}{_format_yaml_scalar(entry)}\n"
+          for entry in new_entries
+      ]
+      if insert_at > 0 and not lines[insert_at - 1].endswith("\n"):
+        lines[insert_at - 1] += "\n"
+      full_insert = [(" " * key_indent) + key_name + ":\n"] + to_insert
+      insertions.append((insert_at, full_insert))
 
   # Apply insertions from bottom to top to preserve line indices.
   insertions.sort(key=lambda item: item[0], reverse=True)
@@ -523,6 +667,27 @@ def sync_manifest_from_build_files(
   valid_prefixes = collect_corpus_prefixes(testdata_suites)
   new_entries_for_col: dict[str, list[str]] = {}
   new_disabled_for_col: dict[str, list[str]] = {}
+  build_list_cache: dict[tuple[str, str], list[str]] = {}
+
+  def _get_build_list(build_path: str, var_name: str) -> list[str]:
+    """Fetches and caches an extracted string list from a BUILD file.
+
+    Args:
+      build_path: Filesystem path to the runtime BUILD file.
+      var_name: Top-level Starlark list variable name to extract.
+
+    Returns:
+      Cached or freshly extracted list of strings assigned to var_name.
+
+    Raises:
+      ValueError: If var_name is not defined at top level in build_path.
+    """
+    cache_key = (build_path, var_name)
+    if cache_key not in build_list_cache:
+      build_list_cache[cache_key] = extract_build_skip_list(
+          build_path, var_name
+      )
+    return build_list_cache[cache_key]
 
   for col in manifest:
     if not col.build_file or (
@@ -535,17 +700,18 @@ def sync_manifest_from_build_files(
 
     excluded_files = set(col.absent_suites) | set(col.disabled_suites)
     if col.build_tests_var:
-      raw_tests = extract_build_skip_list(build_path, col.build_tests_var)
+      raw_tests = _get_build_list(build_path, col.build_tests_var)
       build_test_files = {
           os.path.basename(entry.strip().rsplit(":", 1)[-1])
           for entry in raw_tests
       }
+      known_disabled = excluded_files | set(col.ignored_disabled_suites)
       col_new_disabled: list[str] = []
       seen_disabled: set[str] = set()
       for _, filename, _ in testdata_suites:
         if (
             filename not in build_test_files
-            and filename not in excluded_files
+            and filename not in known_disabled
             and filename not in seen_disabled
         ):
           seen_disabled.add(filename)
@@ -561,7 +727,7 @@ def sync_manifest_from_build_files(
     }
 
     if col.build_skip_var:
-      raw_skips = extract_build_skip_list(build_path, col.build_skip_var)
+      raw_skips = _get_build_list(build_path, col.build_skip_var)
       covered_prefixes: set[str] = (
           set(expand_skip_patterns(col.configured_skips))
           | set(expand_skip_patterns(col.ignored_build_skips))
@@ -617,6 +783,10 @@ def load_notes(path: str) -> NotesConfig:
   Returns:
     Parsed NotesConfig containing row notes, column notes, allowed regressions,
     and callout blocks.
+
+  Raises:
+    ValueError: If any callout entry is not a mapping, contains unknown keys,
+      or is missing a non-empty 'title'.
   """
   with open(path, "r", encoding="utf-8") as f:
     data = yaml.safe_load(f) or {}
@@ -645,15 +815,37 @@ def load_notes(path: str) -> NotesConfig:
       elif isinstance(allow_reg, Sequence) and not isinstance(allow_reg, str):
         allowed_regressions[key_str] = {str(x) for x in allow_reg}
 
-  callouts: list[dict[str, str]] = []
-  for item in data.get("callouts", []) or []:
-    if isinstance(item, Mapping):
-      callouts.append({str(k): str(v) for k, v in item.items()})
+  callouts: list[Callout] = []
+  for idx, item in enumerate(data.get("callouts", []) or []):
+    if not isinstance(item, Mapping):
+      raise ValueError(
+          f"Callout entry #{idx} in {path} must be a mapping, got"
+          f" {type(item).__name__}."
+      )
+    unknown = {str(k) for k in item.keys()} - _VALID_CALLOUT_KEYS
+    if unknown:
+      raise ValueError(
+          f"Callout entry #{idx} in {path} has unknown key(s):"
+          f" {sorted(unknown)}."
+      )
+    title = str(item.get("title") or "").strip()
+    if not title:
+      raise ValueError(
+          f"Callout entry #{idx} in {path} must define a non-empty 'title'."
+      )
+    callouts.append(
+        Callout(
+            title=title,
+            runtimes=str(item.get("runtimes") or "").strip(),
+            tracking=str(item.get("tracking") or "").strip(),
+            details=str(item.get("details") or "").strip(),
+        )
+    )
 
   return NotesConfig(
       notes=notes,
       allowed_regressions=allowed_regressions,
-      callouts=callouts,
+      callouts=tuple(callouts),
       column_notes=column_notes,
   )
 
@@ -673,7 +865,10 @@ def report_from_dict(data: Mapping[str, Any]) -> ConformanceReport:
   suites: list[SuiteReport] = []
   for suite_data in data.get("suites", []):
     suite_name = str(suite_data["name"])
-    suite_file = str(suite_data.get("file") or f"{suite_name}.textproto")
+    suite_file = str(
+        suite_data.get("file")
+        or _KNOWN_SUITE_TO_FILENAME.get(suite_name, f"{suite_name}.textproto")
+    )
     enabled = bool(suite_data.get("enabled", True))
     sections: list[SectionReport] = []
     for section_data in suite_data.get("sections", []):
@@ -722,7 +917,15 @@ def report_from_dict(data: Mapping[str, Any]) -> ConformanceReport:
 
 
 def _test_to_dict(test: TestResult) -> dict[str, str]:
-  """Serializes a TestResult to a minimal JSON-compatible dictionary."""
+  """Serializes a TestResult to a minimal JSON-compatible dictionary.
+
+  Args:
+    test: TestResult record to serialize.
+
+  Returns:
+    Dictionary containing 'name', 'status', and optional 'reason' and 'observed'
+    fields when non-empty.
+  """
   result: dict[str, str] = {"name": test.name, "status": test.status}
   if test.reason:
     result["reason"] = test.reason
@@ -826,6 +1029,7 @@ def _resolve_disabled_tests(tests: Sequence[TestResult]) -> CellStatus:
   passed = 0
   failed = 0
   skipped = 0
+  unexecuted = 0
   for t in tests:
     if t.status in ("pass", "fail", "skipped"):
       has_executed = True
@@ -835,8 +1039,10 @@ def _resolve_disabled_tests(tests: Sequence[TestResult]) -> CellStatus:
       failed += 1
     elif t.status == "skipped" and not t.observed:
       skipped += 1
+    elif t.status in ("not_enabled", "not_run"):
+      unexecuted += 1
 
-  if not has_executed:
+  if not has_executed or total == 0:
     return CellStatus(
         category="not_enabled", rendered="⬜", passed=0, total=total
     )
@@ -847,7 +1053,7 @@ def _resolve_disabled_tests(tests: Sequence[TestResult]) -> CellStatus:
         passed=passed,
         total=total,
     )
-  if skipped > 0:
+  if skipped > 0 or unexecuted > 0 or passed < total:
     return CellStatus(
         category="not_enabled",
         rendered=f"⬜ (⚠️ {passed}/{total})",
@@ -909,13 +1115,18 @@ def resolve_section_cell(
     return _resolve_disabled_tests(tests)
 
   total = len(tests)
+  if total == 0:
+    return CellStatus(category="na", rendered="`n/a`", passed=0, total=0)
   has_not_run = False
   passed = 0
   failed = 0
   skipped = 0
+  not_enabled = 0
   for t in tests:
     if t.status == "not_run":
       has_not_run = True
+    elif t.status == "not_enabled":
+      not_enabled += 1
     elif t.status == "pass":
       passed += 1
     elif t.status == "fail":
@@ -937,7 +1148,7 @@ def resolve_section_cell(
         passed=passed,
         total=total,
     )
-  if skipped > 0:
+  if skipped > 0 or not_enabled > 0 or passed < total:
     return CellStatus(
         category="skipped",
         rendered=f"⚠️ {passed}/{total}",
@@ -997,6 +1208,7 @@ def _synthesize_fallback_column_notes(
     cells: Sequence[CellStatus],
     reports: Mapping[tuple[str, str], ConformanceReport],
     uncovered_col_ids: Set[str],
+    expanded_skips: Mapping[tuple[str, str], Set[str]] | None = None,
 ) -> list[str]:
   """Synthesizes fallback notes for skipped columns lacking curated notes.
 
@@ -1007,6 +1219,7 @@ def _synthesize_fallback_column_notes(
     cells: Resolved CellStatus values corresponding to manifest columns.
     reports: Mapping from (runtime, config) to ConformanceReport.
     uncovered_col_ids: Column IDs needing fallback skip notes.
+    expanded_skips: Optional pre-expanded skip sets keyed by (runtime, config).
 
   Returns:
     Generated fallback note strings, grouped by runtime when targets match.
@@ -1018,11 +1231,13 @@ def _synthesize_fallback_column_notes(
     rep = reports.get((col.runtime, col.config))
     target = ""
     if rep is not None:
-      expanded_skips = set(expand_skip_patterns(rep.configured_skips))
-      if (
-          suite_name in expanded_skips
-          or f"{suite_name}/{section_name}" in expanded_skips
-      ):
+      key = (col.runtime, col.config)
+      col_skips = (
+          expanded_skips[key]
+          if expanded_skips is not None and key in expanded_skips
+          else set(expand_skip_patterns(rep.configured_skips))
+      )
+      if suite_name in col_skips or f"{suite_name}/{section_name}" in col_skips:
         target = (
             f"`{suite_name}`" if section_name == "*" else f"`{section_name}`"
         )
@@ -1070,6 +1285,7 @@ def lookup_note(
     manifest: Sequence[ManifestColumn] | None = None,
     cells: Sequence[CellStatus] | None = None,
     reports: Mapping[tuple[str, str], ConformanceReport] | None = None,
+    expanded_skips: Mapping[tuple[str, str], Set[str]] | None = None,
 ) -> str:
   """Looks up a note for (suite, section), including per-column notes.
 
@@ -1088,6 +1304,7 @@ def lookup_note(
     reports: Optional mapping from (runtime, config) to ConformanceReport. Used
       for automatic fallback note synthesis when a skipped column has no curated
       note.
+    expanded_skips: Optional pre-expanded skip sets keyed by (runtime, config).
 
   Returns:
     Combined note string joined by '; ', or '' if no notes match.
@@ -1098,12 +1315,13 @@ def lookup_note(
   exact_note = notes.get(exact_key)
   if exact_note is not None:
     parts.append(exact_note)
+    has_row_note = True
   else:
     wildcard_note = notes.get(wildcard_key)
+    has_row_note = wildcard_note is not None
     if wildcard_note is not None:
       parts.append(wildcard_note)
 
-  has_row_note = exact_note is not None or notes.get(wildcard_key) is not None
   uncovered_col_ids: set[str] = set()
 
   if manifest and cells:
@@ -1123,7 +1341,13 @@ def lookup_note(
 
     if uncovered_col_ids and reports is not None:
       fallback_notes = _synthesize_fallback_column_notes(
-          suite_name, section_name, manifest, cells, reports, uncovered_col_ids
+          suite_name,
+          section_name,
+          manifest,
+          cells,
+          reports,
+          uncovered_col_ids,
+          expanded_skips=expanded_skips,
       )
       for fn in fallback_notes:
         if fn not in parts:
@@ -1212,16 +1436,23 @@ def _render_header_and_legend(synthesized: bool) -> list[str]:
       "",
   ]
   if synthesized:
+    note_text = (
+        "**Note:** This matrix is derived from each runtime release's"
+        " checked-in conformance configuration (enabled test files and skip"
+        " lists), not from executed test results. Section totals are computed"
+        " against each runtime's pinned `cel-spec` release (listed in the"
+        " **Spec Commit** row); suites and sections added at newer `cel-spec`"
+        " revisions are shown as `n/a`, and individual tests added to existing"
+        " sections after a runtime's pin are excluded via `absent_tests`."
+    )
     lines.extend([
-        (
-            "> **Note:** This matrix is derived from each runtime release's"
-            " checked-in conformance\n> configuration (enabled test files and"
-            " skip lists), not from executed test\n> results. Section totals"
-            " are computed against the `cel-spec` testdata at HEAD;\n> the"
-            " **Spec Commit** row shows the `cel-spec` release each runtime"
-            " pins.\n> Suites and sections that do not exist at a runtime's"
-            " pinned `cel-spec` are\n> shown as `n/a`, but tests added to"
-            " existing sections after that pin are still\n> counted."
+        textwrap.fill(
+            note_text,
+            width=80,
+            initial_indent="> ",
+            subsequent_indent="> ",
+            break_long_words=False,
+            break_on_hyphens=False,
         ),
         "",
     ])
@@ -1267,7 +1498,17 @@ def _can_collapse_suite_wildcard(
     manifest: Sequence[ManifestColumn],
     reports: Mapping[tuple[str, str], ConformanceReport],
 ) -> bool:
-  """Returns True if no column enables or executes the given suite."""
+  """Returns True if no column enables or executes the given suite.
+
+  Args:
+    suite_name: Name of the conformance test suite under consideration.
+    manifest: Ordered sequence of ManifestColumn definitions.
+    reports: Mapping from (runtime, config) to ConformanceReport.
+
+  Returns:
+    True if all manifest columns have a report where suite_name is either
+    absent or disabled with no executed ('pass', 'fail', 'skipped') tests.
+  """
   for col in manifest:
     rep = reports.get((col.runtime, col.config))
     if rep is None:
@@ -1283,11 +1524,11 @@ def _can_collapse_suite_wildcard(
   return True
 
 
-def _render_callouts(callouts: Sequence[Mapping[str, str]]) -> list[str]:
+def _render_callouts(callouts: Sequence[Callout]) -> list[str]:
   """Renders the Non-Conforming Suites & Known Issues callout section.
 
   Args:
-    callouts: Sequence of callout block mappings from conformance_notes.yaml.
+    callouts: Sequence of Callout objects from conformance_notes.yaml.
 
   Returns:
     Markdown lines for the callouts section, or an empty list if none exist.
@@ -1302,20 +1543,48 @@ def _render_callouts(callouts: Sequence[Mapping[str, str]]) -> list[str]:
       "",
   ]
   for callout in callouts:
-    title = callout.get("title", "")
-    lines.append(f"> **{title}**")
+    lines.append(
+        textwrap.fill(
+            f"**{callout.title}**",
+            width=80,
+            initial_indent="> ",
+            subsequent_indent="> ",
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+    )
     lines.append(">")
-    runtimes = callout.get("runtimes")
-    if runtimes is not None:
-      lines.append(f"> *   **Runtimes:** {runtimes}")
-    tracking = callout.get("tracking")
-    if tracking is not None:
-      lines.append(f"> *   **Tracking:** {tracking}")
-    details = callout.get("details")
-    if details is not None:
-      lines.append(f"> *   **Details:** {details}")
+    for label, value in (
+        ("Runtimes", callout.runtimes),
+        ("Tracking", callout.tracking),
+        ("Details", callout.details),
+    ):
+      if value:
+        lines.append(
+            textwrap.fill(
+                f"**{label}:** {value}",
+                width=80,
+                initial_indent="> *   ",
+                subsequent_indent=">     ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
     lines.append("")
   return lines
+
+
+def _escape_table_cell(text: str) -> str:
+  r"""Escapes newlines and unescaped pipes for Markdown table cells.
+
+  Args:
+    text: Raw cell text to sanitize.
+
+  Returns:
+    Single-line string with unescaped pipes escaped as '\|'.
+  """
+  single_line = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+  return _UNESCAPED_PIPE_RE.sub(lambda _: r"\|", single_line)
 
 
 def render_markdown(
@@ -1350,14 +1619,14 @@ def render_markdown(
 
   lines = _render_header_and_legend(synthesized)
 
-  col_headers = [col.label for col in manifest]
+  col_headers = [_escape_table_cell(col.label) for col in manifest]
   lines.append(
       "| Suite (`*.textproto`) | Section | "
       + " | ".join(col_headers)
       + " | Notes |"
   )
   lines.append(
-      "| :--- | :--- | " + " | ".join([":---:"] * len(manifest)) + " | :--- |"
+      "| :--- | :--- | " + " | ".join([":---"] * len(manifest)) + " | :--- |"
   )
 
   # Metadata rows: Runtime Version and Spec Commit
@@ -1369,8 +1638,8 @@ def render_markdown(
       version_cells.append("`n/a`")
       commit_cells.append("`n/a`")
     else:
-      version_cells.append(f"`{rep.runtime_version}`")
-      commit_cells.append(f"`{rep.spec_commit}`")
+      version_cells.append(f"`{_escape_table_cell(rep.runtime_version)}`")
+      commit_cells.append(f"`{_escape_table_cell(rep.spec_commit)}`")
 
   lines.append(
       "| **Runtime Version** | — | "
@@ -1383,11 +1652,24 @@ def render_markdown(
       + " | `cel-spec` revision tested |"
   )
 
+  expanded_skips: dict[tuple[str, str], set[str]] | None = None
+  if synthesized:
+    expanded_skips = {}
+    for col in manifest:
+      rep = reports.get((col.runtime, col.config))
+      if rep is not None:
+        expanded_skips[(col.runtime, col.config)] = set(
+            expand_skip_patterns(rep.configured_skips)
+        )
+
   rendered_rows: list[tuple[str, str]] = []
   rendered_cells: dict[tuple[str, str], list[CellStatus]] = {}
 
   for suite_name in sorted(suite_sections.keys()):
-    filename = suite_files.get(suite_name, f"{suite_name}.textproto")
+    filename = suite_files.get(
+        suite_name,
+        _KNOWN_SUITE_TO_FILENAME.get(suite_name, f"{suite_name}.textproto"),
+    )
     file_url = f"{GITHUB_TESTDATA_BASE_URL}/{filename}"
     suite_cell = f"[`{suite_name}`]({file_url})"
     sections = suite_sections[suite_name]
@@ -1409,14 +1691,17 @@ def render_markdown(
 
       note = ""
       if sec_name == "*" or any(c.category != "pass" for c in cells):
-        note = lookup_note(
-            notes_config.notes,
-            suite_name,
-            sec_name,
-            notes_config.column_notes,
-            manifest,
-            cells,
-            reports=reports if synthesized else None,
+        note = _escape_table_cell(
+            lookup_note(
+                notes_config.notes,
+                suite_name,
+                sec_name,
+                notes_config.column_notes,
+                manifest,
+                cells,
+                reports=reports if synthesized else None,
+                expanded_skips=expanded_skips,
+            )
         )
       sec_cell = f"[`{sec_name}`]({file_url})"
       lines.append(
@@ -1461,7 +1746,7 @@ def normalize_markdown(markdown: str) -> str:
       continue
     if line.startswith("|") and line.endswith("|"):
       _flush_paragraph()
-      cells = [cell.strip() for cell in line[1:-1].split("|")]
+      cells = [cell.strip() for cell in _UNESCAPED_PIPE_RE.split(line[1:-1])]
       norm_cells: list[str] = []
       for cell in cells:
         if _TABLE_ALIGN_RE.fullmatch(cell):
@@ -1635,6 +1920,29 @@ _COUNTS_RE = re.compile(r"(\d+)/(\d+)")
 _STATUS_CELL_RE = re.compile(r"(✅|⚠️|❌)\s+(\d+)/(\d+)")
 
 
+def _add_section_test_prefixes(
+    prefixes: set[str],
+    suite_name: str,
+    sections: Iterable[tuple[str, Iterable[str]]],
+) -> None:
+  """Adds suite, section, and test prefixes for a suite to prefixes.
+
+  Args:
+    prefixes: Destination set updated in place with valid prefix paths.
+    suite_name: Name of the suite owning sections.
+    sections: Iterable of (section_name, test_names) pairs.
+  """
+  for sec_name, test_names in sections:
+    sec_prefix = f"{suite_name}/{sec_name}"
+    added_any = False
+    for test_name in test_names:
+      if not added_any:
+        prefixes.add(suite_name)
+        prefixes.add(sec_prefix)
+        added_any = True
+      prefixes.update(_iter_path_prefixes(f"{sec_prefix}/{test_name}"))
+
+
 def collect_corpus_prefixes(
     testdata_suites: Sequence[SuiteCorpus],
 ) -> set[str]:
@@ -1649,14 +1957,7 @@ def collect_corpus_prefixes(
   """
   valid_prefixes: set[str] = set()
   for suite_name, _, sections in testdata_suites:
-    for sec_name, test_names in sections:
-      if not test_names:
-        continue
-      sec_prefix = f"{suite_name}/{sec_name}"
-      valid_prefixes.add(suite_name)
-      valid_prefixes.add(sec_prefix)
-      for test_name in test_names:
-        valid_prefixes.update(_iter_path_prefixes(f"{sec_prefix}/{test_name}"))
+    _add_section_test_prefixes(valid_prefixes, suite_name, sections)
   return valid_prefixes
 
 
@@ -1681,45 +1982,58 @@ def validate_skips(
   Returns:
     A list of validation error messages (empty if all skip patterns match).
   """
-  valid_prefixes: set[str] = set()
-  for suite in report.suites:
-    if not suite.sections:
-      continue
-    for sec in suite.sections:
-      if not sec.tests:
-        continue
-      sec_prefix = f"{suite.name}/{sec.name}"
-      valid_prefixes.add(suite.name)
-      valid_prefixes.add(sec_prefix)
-      for test in sec.tests:
-        valid_prefixes.update(_iter_path_prefixes(f"{sec_prefix}/{test.name}"))
-
+  base_prefixes: Set[str]
   if corpus_prefixes is not None:
-    valid_prefixes.update(corpus_prefixes)
+    base_prefixes = corpus_prefixes
   elif testdata_suites is not None:
-    valid_prefixes.update(collect_corpus_prefixes(testdata_suites))
+    base_prefixes = collect_corpus_prefixes(testdata_suites)
+  else:
+    base_prefixes = frozenset()
 
+  extra_prefixes: set[str] = set()
+  filename_to_suite: dict[str, str] = dict(_KNOWN_FILENAME_TO_SUITE)
+  for suite in report.suites:
+    filename_to_suite[suite.file] = suite.name
+    if suite.sections:
+      _add_section_test_prefixes(
+          extra_prefixes,
+          suite.name,
+          ((sec.name, (t.name for t in sec.tests)) for sec in suite.sections),
+      )
+
+  allow_absent_prefix_wildcard = (
+      corpus_prefixes is None and testdata_suites is None
+  )
   absent_prefixes: tuple[str, ...] = ()
   if manifest_column is not None:
+    if manifest_column.absent_suites and testdata_suites is not None:
+      for suite_name, filename, _ in testdata_suites:
+        filename_to_suite[filename] = suite_name
     absent_prefix_list: list[str] = []
     for absent_file in manifest_column.absent_suites:
-      suite_name = absent_file.removesuffix(".textproto")
-      valid_prefixes.add(suite_name)
-      absent_prefix_list.append(f"{suite_name}/")
+      suite_name = filename_to_suite.get(
+          absent_file, absent_file.removesuffix(".textproto")
+      )
+      extra_prefixes.add(suite_name)
+      if allow_absent_prefix_wildcard:
+        absent_prefix_list.append(f"{suite_name}/")
     for absent_sec in manifest_column.absent_sections:
-      valid_prefixes.add(absent_sec)
-      absent_prefix_list.append(f"{absent_sec}/")
+      extra_prefixes.add(absent_sec)
       if "/" in absent_sec:
-        valid_prefixes.add(absent_sec.split("/", 1)[0])
+        extra_prefixes.add(absent_sec.split("/", 1)[0])
+      if allow_absent_prefix_wildcard:
+        absent_prefix_list.append(f"{absent_sec}/")
     for absent_test in manifest_column.absent_tests:
-      valid_prefixes.update(_iter_path_prefixes(absent_test))
+      extra_prefixes.update(_iter_path_prefixes(absent_test))
     absent_prefixes = tuple(absent_prefix_list)
 
   errors: list[str] = []
   expanded_patterns = expand_skip_patterns(report.configured_skips)
   for pattern in expanded_patterns:
-    if pattern not in valid_prefixes and not (
-        absent_prefixes and pattern.startswith(absent_prefixes)
+    if (
+        pattern not in base_prefixes
+        and pattern not in extra_prefixes
+        and not (absent_prefixes and pattern.startswith(absent_prefixes))
     ):
       errors.append(
           f"[{report.runtime}/{report.config}] Unmatched skip pattern:"
@@ -1732,7 +2046,7 @@ def validate_manifest(
     manifest: Sequence[ManifestColumn],
     reports: Mapping[tuple[str, str], ConformanceReport],
 ) -> list[str]:
-  """Validates that every expected column in the manifest has a report.
+  """Validates that manifest columns have reports and enabled suites ran.
 
   Args:
     manifest: Ordered sequence of ManifestColumn definitions.
@@ -1765,6 +2079,12 @@ def validate_manifest(
           errors.append(
               f"[{col.runtime}/{col.config}] Suite/section"
               f" {suite.name}/{sec.name} has 'not_run' tests."
+          )
+        if any(t.status == "not_enabled" for t in sec.tests):
+          errors.append(
+              f"[{col.runtime}/{col.config}] Suite/section"
+              f" {suite.name}/{sec.name} has 'not_enabled' tests in an"
+              " enabled suite."
           )
   return errors
 
@@ -1802,7 +2122,7 @@ def validate_notes(
     notes: Mapping[str, str],
     column_notes: Mapping[tuple[str, str], str] | None = None,
     manifest: Sequence[ManifestColumn] | None = None,
-    callouts: Sequence[Mapping[str, str]] | None = None,
+    callouts: Sequence[Callout] | None = None,
     reports: Mapping[tuple[str, str], ConformanceReport] | None = None,
 ) -> list[str]:
   """Validates that every ⚠️ cell has a note and no internal b/ links appear.
@@ -1816,8 +2136,8 @@ def validate_notes(
     manifest: Optional sequence of ManifestColumn definitions. When manifest is
       None, per-column skip note coverage cannot be checked and a row-level note
       in notes is required.
-    callouts: Optional sequence of callout block dictionaries. When None,
-      callout bug-link validation is skipped.
+    callouts: Optional sequence of Callout blocks. When None, callout bug-link
+      validation is skipped.
     reports: Optional mapping from (runtime, config) to ConformanceReport. When
       provided, automatic fallback note synthesis is used to satisfy missing
       note requirements.
@@ -1865,10 +2185,15 @@ def validate_notes(
         )
   if callouts:
     for callout in callouts:
-      for field_val in callout.values():
+      for field_val in (
+          callout.title,
+          callout.runtimes,
+          callout.tracking,
+          callout.details,
+      ):
         if _INTERNAL_BUG_RE.search(field_val):
           errors.append(
-              f"Internal bug link in callout {callout.get('title', '')!r}: use"
+              f"Internal bug link in callout {callout.title!r}: use"
               " public GitHub issue links."
           )
   return errors
@@ -1882,7 +2207,21 @@ def _is_regression_allowed(
     config: str,
     col_id: str = "",
 ) -> bool:
-  """Returns True if a regression is allowlisted for (suite, section)."""
+  """Returns True if a regression is allowlisted for (suite, section).
+
+  Args:
+    allowed_regressions: Mapping from 'suite/section' or 'suite/*' to allowed
+      target keys ('*', column ID, 'runtime/config', or 'runtime').
+    suite_name: Suite name of the cell being evaluated.
+    section_name: Section name (or '*') of the cell being evaluated.
+    runtime: Runtime identifier for the column.
+    config: Configuration identifier for the column.
+    col_id: Optional manifest column ID; defaults to empty string.
+
+  Returns:
+    True if either exact section or suite wildcard allowlists '*', col_id,
+    'runtime/config', or 'runtime'.
+  """
   target_id = f"{runtime}/{config}"
   for key in (f"{suite_name}/{section_name}", f"{suite_name}/*"):
     allowed_set = allowed_regressions.get(key, frozenset())
@@ -1897,7 +2236,16 @@ def _is_regression_allowed(
 
 
 def _has_cell_regressed(base_cell: CellStatus, curr_cell: CellStatus) -> bool:
-  """Returns True if curr_cell represents a regression from base_cell."""
+  """Returns True if curr_cell represents a regression from base_cell.
+
+  Args:
+    base_cell: Baseline CellStatus parsed from the prior matrix.
+    curr_cell: Newly resolved CellStatus for the same row and column.
+
+  Returns:
+    True if curr_cell degrades in category or non-passing count relative to
+    base_cell (including fail/dashboard regressions), False otherwise.
+  """
   if base_cell.category == "pass":
     return curr_cell.category != "pass"
   if base_cell.category == "skipped":
@@ -1907,6 +2255,30 @@ def _has_cell_regressed(base_cell: CellStatus, curr_cell: CellStatus) -> bool:
       base_skipped = base_cell.total - base_cell.passed
       curr_skipped = curr_cell.total - curr_cell.passed
       return curr_skipped > base_skipped
+  if base_cell.category == "fail":
+    if curr_cell.category in ("not_enabled", "not_run", "na"):
+      return True
+    if curr_cell.category == "fail":
+      base_non_passing = base_cell.total - base_cell.passed
+      curr_non_passing = curr_cell.total - curr_cell.passed
+      return curr_non_passing > base_non_passing or (
+          curr_cell.passed == 0 and base_cell.passed > 0
+      )
+  if base_cell.category == "not_enabled" and base_cell.total > 0:
+    if curr_cell.category in ("not_run", "na", "fail"):
+      return True
+    if curr_cell.category == "not_enabled":
+      if curr_cell.total == 0 or curr_cell.rendered == "⬜":
+        return True
+      if "❌" in curr_cell.rendered and "❌" not in base_cell.rendered:
+        return True
+      return (curr_cell.total - curr_cell.passed) > (
+          base_cell.total - base_cell.passed
+      )
+    if curr_cell.category == "skipped":
+      return (curr_cell.total - curr_cell.passed) > (
+          base_cell.total - base_cell.passed
+      )
   return False
 
 
@@ -1991,17 +2363,20 @@ def _parse_rendered_cell(rendered: str) -> CellStatus:
   return CellStatus(category="unknown", rendered=text, passed=0, total=0)
 
 
-def parse_baseline_markdown(
+def _parse_baseline_header_and_rows(
     markdown: str, manifest: Sequence[ManifestColumn]
-) -> dict[tuple[str, str], list[CellStatus]]:
-  """Parses a committed conformance.md table into row_key -> [CellStatus].
+) -> tuple[dict[str, int] | None, dict[tuple[str, str], list[CellStatus]]]:
+  """Parses table header labels and rows from a baseline conformance.md.
 
   Args:
-    markdown: Markdown document containing a conformance coverage table.
-    manifest: Sequence of ManifestColumn definitions to align columns against.
+    markdown: Raw Markdown contents of the baseline conformance matrix.
+    manifest: Ordered ManifestColumn sequence defining expected column labels
+      and positional fallback width.
 
   Returns:
-    Mapping from (suite_name, section_name) to per-column CellStatus objects.
+    Tuple (header_index_by_label, rows) where header_index_by_label maps
+    unescaped column labels to table column indices (or None if no header row
+    was found) and rows maps (suite, section) pairs to aligned CellStatus lists.
   """
   normalized = normalize_markdown(markdown)
   rows: dict[tuple[str, str], list[CellStatus]] = {}
@@ -2010,14 +2385,15 @@ def parse_baseline_markdown(
   for line in normalized.splitlines():
     if not (line.startswith("|") and line.endswith("|")):
       continue
-    cells = [cell.strip() for cell in line[1:-1].split("|")]
+    cells = [cell.strip() for cell in _UNESCAPED_PIPE_RE.split(line[1:-1])]
     if (
         len(cells) >= 3
         and cells[0].startswith("Suite")
         and cells[1] == "Section"
     ):
       header_index_by_label = {
-          label: idx for idx, label in enumerate(cells[2:-1], start=2)
+          label.replace(r"\|", "|"): idx
+          for idx, label in enumerate(cells[2:-1], start=2)
       }
       continue
     if len(cells) < 3:
@@ -2045,6 +2421,22 @@ def parse_baseline_markdown(
           _parse_rendered_cell(cells[2 + idx]) for idx in range(num_cols)
       ]
     rows[(suite_name, sec_name)] = col_cells
+  return header_index_by_label, rows
+
+
+def parse_baseline_markdown(
+    markdown: str, manifest: Sequence[ManifestColumn]
+) -> dict[tuple[str, str], list[CellStatus]]:
+  """Parses a committed conformance.md table into row_key -> [CellStatus].
+
+  Args:
+    markdown: Markdown document containing a conformance coverage table.
+    manifest: Sequence of ManifestColumn definitions to align columns against.
+
+  Returns:
+    Mapping from (suite_name, section_name) to per-column CellStatus objects.
+  """
+  _, rows = _parse_baseline_header_and_rows(markdown, manifest)
   return rows
 
 
@@ -2066,8 +2458,17 @@ def validate_no_regressions_from_markdown(
   Returns:
     A list of regression error messages.
   """
-  baseline_rows = parse_baseline_markdown(baseline_markdown, manifest)
+  header_index_by_label, baseline_rows = _parse_baseline_header_and_rows(
+      baseline_markdown, manifest
+  )
   errors: list[str] = []
+  if header_index_by_label is not None:
+    for col in manifest:
+      if col.label not in header_index_by_label:
+        errors.append(
+            f"Baseline markdown table header is missing column {col.label!r}"
+            f" ({col.runtime}/{col.config})."
+        )
   for (suite_name, sec_name), base_cells in baseline_rows.items():
     curr_cells = rendered_cells.get((suite_name, sec_name))
     if curr_cells is None:
@@ -2174,18 +2575,19 @@ def _resolve_workspace_args(args: argparse.Namespace) -> str | None:
 
   Args:
     args: Parsed CLI namespace; path attributes ('manifest', 'notes',
-      'testdata_dir', 'output', 'check_consistency', 'baseline_markdown') are
-      mutated in place when resolved against BUILD_WORKSPACE_DIRECTORY.
+      'testdata_dir', 'output', 'check_consistency', 'baseline_markdown',
+      'reports', 'build_root') are resolved in place against
+      BUILD_WORKING_DIRECTORY and BUILD_WORKSPACE_DIRECTORY when relative.
 
   Returns:
     Resolved workspace or build root directory path for syncing runtime BUILD
     files, or None if it cannot be determined.
   """
+  cwd_dir = os.environ.get("BUILD_WORKING_DIRECTORY")
   ws_dir = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+  spec_dir: str | None = None
   if ws_dir:
-    spec_dir = os.path.join(ws_dir, "third_party/cel/spec")
-    if not os.path.isdir(spec_dir):
-      spec_dir = ws_dir
+    spec_dir = ws_dir
 
     if not args.manifest:
       args.manifest = os.path.join(spec_dir, "tools/conformance_manifest.yaml")
@@ -2194,10 +2596,32 @@ def _resolve_workspace_args(args: argparse.Namespace) -> str | None:
     if not args.testdata_dir and not args.reports:
       args.testdata_dir = os.path.join(spec_dir, "tests/simple/testdata")
     if not args.output and not args.check_consistency and not args.reports:
-      doc_subdir = (
-          "g3doc" if os.path.isdir(os.path.join(spec_dir, "g3doc")) else "doc"
-      )
-      args.output = os.path.join(spec_dir, doc_subdir, "conformance.md")
+      args.output = os.path.join(spec_dir, "doc/conformance.md")
+
+  if cwd_dir or ws_dir:
+
+    def _resolve_rel(
+        rel_path: str, fallback: str | None, is_dir: bool = False
+    ) -> str:
+      """Resolves a relative CLI path against workspace directories.
+
+      Args:
+        rel_path: Relative filesystem path supplied via CLI flags.
+        fallback: Fallback base directory if rel_path does not exist yet.
+        is_dir: If True, requires an existing directory match instead of file.
+
+      Returns:
+        Normalized resolved path under cwd_dir, ws_dir, spec_dir, or fallback.
+      """
+      exists_fn = os.path.isdir if is_dir else os.path.exists
+      for base in (cwd_dir, ws_dir, spec_dir):
+        if base:
+          candidate = os.path.normpath(os.path.join(base, rel_path))
+          if exists_fn(candidate):
+            return candidate
+      if fallback:
+        return os.path.normpath(os.path.join(fallback, rel_path))
+      return rel_path
 
     for attr in (
         "manifest",
@@ -2209,20 +2633,24 @@ def _resolve_workspace_args(args: argparse.Namespace) -> str | None:
     ):
       p = getattr(args, attr, None)
       if p and not os.path.isabs(p):
-        ws_candidate = os.path.join(ws_dir, p)
-        spec_candidate = os.path.join(spec_dir, p)
         if attr == "output":
-          if p.startswith("third_party/") or spec_dir == ws_dir:
-            setattr(args, attr, ws_candidate)
-          else:
-            setattr(args, attr, spec_candidate)
+          base = spec_dir or cwd_dir or ws_dir
+          if base:
+            setattr(args, attr, os.path.normpath(os.path.join(base, p)))
         else:
-          if os.path.exists(ws_candidate):
-            setattr(args, attr, ws_candidate)
-          elif os.path.exists(spec_candidate):
-            setattr(args, attr, spec_candidate)
-          elif not os.path.exists(p):
-            setattr(args, attr, spec_candidate)
+          setattr(args, attr, _resolve_rel(p, spec_dir or ws_dir or cwd_dir))
+
+    if getattr(args, "reports", None):
+      report_fallback = cwd_dir or ws_dir or spec_dir
+      args.reports = [
+          r if os.path.isabs(r) else _resolve_rel(r, report_fallback)
+          for r in args.reports
+      ]
+
+    if args.build_root and not os.path.isabs(args.build_root):
+      args.build_root = _resolve_rel(
+          args.build_root, cwd_dir or ws_dir or spec_dir, is_dir=True
+      )
 
   if args.build_root:
     return args.build_root
@@ -2387,7 +2815,12 @@ def main(argv: Sequence[str] | None = None) -> int:
   if args.reports:
     reports = load_reports(args.reports)
   else:
-    assert testdata_suites is not None
+    if testdata_suites is None:
+      print(
+          "ERROR: --testdata_dir is required when --reports is omitted.",
+          file=sys.stderr,
+      )
+      return 1
     reports = synthesize_reports_from_manifest(manifest, testdata_suites)
 
   markdown, rendered_rows, rendered_cells = render_markdown(

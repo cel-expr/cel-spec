@@ -5,8 +5,10 @@ on:
     branches:
       - master
     paths:
+      - "doc/BUILD.bazel"
       - "doc/conformance.md"
       - "tools/**"
+      - "tests/simple/BUILD.bazel"
       - "tests/simple/testdata/**"
       - "proto/cel/expr/**"
       - "MODULE.bazel"
@@ -16,8 +18,10 @@ on:
     branches:
       - master
     paths:
+      - "doc/BUILD.bazel"
       - "doc/conformance.md"
       - "tools/**"
+      - "tests/simple/BUILD.bazel"
       - "tests/simple/testdata/**"
       - "proto/cel/expr/**"
       - "MODULE.bazel"
@@ -44,21 +48,14 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@4fd964a13a440a8aeb0be47350db2fc640f19ca8 # 0.15.0
+        # v0.15.0
+        uses: bazel-contrib/setup-bazel@4fd964a13a440a8aeb0be47350db2fc640f19ca8
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
       - name: Run conformance matrix unit & consistency tests
-        run: bazelisk test //tools:generate_conformance_matrix_test --test_output=errors
-
-      - name: Verify doc/conformance.md consistency and validation gates
         run: |
-          bazelisk run //tools:generate_conformance_matrix -- \
-            --manifest tools/conformance_manifest.yaml \
-            --notes tools/conformance_notes.yaml \
-            --testdata_dir tests/simple/testdata \
-            --strict_manifest \
-            --baseline_markdown doc/conformance.md \
-            --check_consistency doc/conformance.md
+          bazelisk test \
+            //tools:generate_conformance_matrix_test --test_output=errors

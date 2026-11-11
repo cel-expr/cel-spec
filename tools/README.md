@@ -13,10 +13,12 @@ validate the
 *   `conformance_manifest.yaml`: Declares the tracked CEL runtime
     implementations (`C++`, `Go`, `Java`), their release versions, and their
     checked-in conformance skip configurations (`disabled_suites`,
-    `configured_skips`, `absent_suites`, `absent_sections`, and `absent_tests`).
+    `configured_skips`, `ignored_disabled_suites`, `ignored_build_skips`,
+    `absent_suites`, `absent_sections`, and `absent_tests`).
 *   `conformance_notes.yaml`: Provides human-readable explanations and public
     issue links for every non-passing (`skip`, `fail`, `partial`) cell in the
-    matrix, as well as section-level callouts and `allowed_regressions`.
+    matrix, as well as section-level callouts and per-section `allow_regression`
+    rules.
 *   `generate_conformance_matrix_test.py`: Unit and end-to-end consistency tests
     for the generator, validation gates, and checked-in Markdown output.
 
@@ -32,8 +34,9 @@ validate the
     skip lists via Python AST analysis. Any `.textproto` suites omitted from
     `build_tests_var` (e.g. `_ALL_TESTS`) are appended to `disabled_suites`
     (`⬜`), while newly skipped test cases present in the corpus are appended to
-    `configured_skips` (filtering out `ignored_build_skips`, absent sections,
-    and disabled suites). Synchronization is intentionally one-way (append-only)
+    `configured_skips` (filtering out `ignored_disabled_suites`,
+    `ignored_build_skips`, absent suites/sections/tests, and disabled suites).
+    Synchronization is intentionally one-way (append-only)
     so that new `HEAD` tests and skips are captured automatically without
     clobbering release-pinned or OSS-only skips in `conformance_manifest.yaml`.
 3.  **Status Resolution (`--testdata_dir` vs. `--reports`)**:
@@ -60,51 +63,61 @@ validate the
         is missing from the rendered Markdown table.
     *   **Regression Validation**: When `--baseline_markdown` is supplied, fails
         if any cell regresses (for example, `pass` to `skip` or `fail`) unless
-        explicitly permitted under `allowed_regressions` in
+        explicitly permitted via `allow_regression` under `notes` in
         `conformance_notes.yaml`.
 
 ## Usage
 
-### With Bazel (Zero Flags Required)
-
-With Bazel, developers can regenerate the conformance coverage matrix, sync
-missing skips from runtime `BUILD` files, and update `doc/conformance.md`
-with a single zero-flag command:
+### Regenerate the Matrix (Zero Flags)
 
 ```bash
 bazel run //tools:generate_conformance_matrix
 ```
 
-The generator detects `BUILD_WORKSPACE_DIRECTORY`, resolves default paths to
+The generator detects `BUILD_WORKSPACE_DIRECTORY` and resolves default paths to
 `conformance_manifest.yaml`, `conformance_notes.yaml`, `tests/simple/testdata`,
-and `doc/conformance.md`, synchronizes new skips from runtime `BUILD` files,
-synthesizes fallback notes where needed, and writes the updated Markdown.
+and `doc/conformance.md`. In a standalone `cel-spec` checkout this
+regenerates `doc/conformance.md` directly from the manifest, notes, and
+testdata corpus; when `--build_root <workspace>`
+provides the configured runtime `BUILD` files, it
+also appends newly added skips and disabled suites into
+`conformance_manifest.yaml` and synthesizes fallback notes where needed.
 
-### Standalone / OSS Usage
+### Custom Flags & Live Execution Reports
 
-Run from the repository root after modifying `conformance_manifest.yaml`,
-`conformance_notes.yaml`, or any `.textproto` suite under
-`tests/simple/testdata/`:
+Pass explicit flags after `--` when evaluating live JSON execution reports
+(`--reports`), checking regression baselines (`--baseline_markdown`), or
+pointing `--build_root` at an external workspace containing runtime `BUILD`
+files:
 
 ```bash
-python3 tools/generate_conformance_matrix.py \
+# Evaluate live execution reports against the baseline:
+bazel run //tools:generate_conformance_matrix -- \
   --manifest tools/conformance_manifest.yaml \
   --notes tools/conformance_notes.yaml \
-  --testdata_dir tests/simple/testdata \
+  --reports path/to/go_report.json path/to/cpp_report.json \
+  --baseline_markdown doc/conformance.md \
   --output doc/conformance.md
+
+# Sync skips from an external workspace root when regenerating from testdata:
+bazel run //tools:generate_conformance_matrix -- \
+  --build_root /path/to/workspace
 ```
 
 ### Verify Consistency in CI / Presubmit
 
-To verify that all validation gates pass and
-[`doc/conformance.md`](../doc/conformance.md) is up to
-date without modifying files on disk:
+To run the unit and consistency test suite and verify that all validation gates
+pass and [`doc/conformance.md`](../doc/conformance.md)
+is up to date without modifying files on disk:
 
 ```bash
-python3 tools/generate_conformance_matrix.py \
+bazel test //tools:generate_conformance_matrix_test
+bazel run //tools:generate_conformance_matrix -- \
   --manifest tools/conformance_manifest.yaml \
   --notes tools/conformance_notes.yaml \
   --testdata_dir tests/simple/testdata \
+  --strict_manifest \
+  --baseline_markdown doc/conformance.md \
   --check_consistency doc/conformance.md
 ```
 
@@ -137,7 +150,7 @@ python3 tools/generate_conformance_matrix.py \
         `tools/conformance_manifest.yaml` reported by the skip validation gate,
         then regenerate `doc/conformance.md`.
 *   **Updating a pinned runtime release**:
-    1.  Update `runtime_version`, `spec_commit`, `absent_*`, `disabled_suites`,
-        and `configured_skips` for that column in
-        `tools/conformance_manifest.yaml` to match the new release tag, then
-        regenerate `doc/conformance.md`.
+    1.  Update `runtime_version`, `spec_commit`, `absent_*`,
+        `ignored_disabled_suites`, `ignored_build_skips`, `disabled_suites`, and
+        `configured_skips` for that column in `tools/conformance_manifest.yaml`
+        to match the new release tag, then regenerate `doc/conformance.md`.

@@ -60,6 +60,9 @@ http_archive = use_repo_rule(
     "http_archive",
 )
 
+# pyyaml-6.0.2/lib contains the pure-Python `yaml/` package directly without
+# requiring Cython/libyaml compilation; stripping that prefix places `yaml/` at
+# the external repo root so `imports = ["."]` resolves `import yaml`.
 http_archive(
     name = "pyyaml",
     build_file_content = """\

@@ -19,27 +19,18 @@ import io
 import json
 import os
 import tempfile
-
-import unittest as absltest
+import textwrap
+import unittest
+from unittest import mock
 
 import generate_conformance_matrix as gcm
 
 
 def _find_spec_root_dir() -> str:
-  test_srcdir = (
-      absltest.TEST_SRCDIR.value
-      if hasattr(absltest, "TEST_SRCDIR")
-      else os.environ.get("TEST_SRCDIR", "")
-  )
-  if test_srcdir:
-    workspace = os.environ.get("TEST_WORKSPACE", "google3")
-    g3_spec = os.path.join(test_srcdir, workspace, "third_party/cel/spec")
-    if os.path.isdir(g3_spec):
-      return g3_spec
   return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
-class GenerateConformanceMatrixTest(absltest.TestCase):
+class GenerateConformanceMatrixTest(unittest.TestCase):
 
   def test_expand_and_match_skip_patterns(self):
     raw = [
@@ -181,33 +172,38 @@ class GenerateConformanceMatrixTest(absltest.TestCase):
     with tempfile.TemporaryDirectory() as tmpdir:
       manifest_path = os.path.join(tmpdir, "manifest.yaml")
       with open(manifest_path, "w", encoding="utf-8") as f:
-        f.write("""
-excluded_sections:
-  - legacy/sec
-excluded_tests:
-  - legacy/sec2/t_old
-columns:
-  - id: go_default
-    runtime: go
-    config: default
-    label: Go
-    runtime_version: v0.27.0
-    spec_commit: abc1234
-    disabled_suites:
-      - block_ext.textproto
-    configured_skips:
-      - enums/strong_proto2
-    absent_suites:
-      - future.textproto
-    absent_sections:
-      - legacy/sec
-      - custom/absent_sec
-    absent_tests:
-      - custom/sec/t_absent
-""")
+        f.write(textwrap.dedent("""
+            excluded_sections:
+              - legacy/sec
+            excluded_tests:
+              - legacy/sec2/t_old
+            columns:
+              - id: go_default
+                runtime: go
+                config: default
+                label: Go
+                runtime_version: v0.27.0
+                spec_commit: abc1234
+                ignored_disabled_suites:
+                  - ignored_suite.textproto
+                disabled_suites:
+                  - block_ext.textproto
+                configured_skips:
+                  - enums/strong_proto2
+                absent_suites:
+                  - future.textproto
+                absent_sections:
+                  - legacy/sec
+                  - custom/absent_sec
+                absent_tests:
+                  - custom/sec/t_absent
+            """))
       cols = gcm.load_manifest(manifest_path)
       self.assertEqual(len(cols), 1)
       self.assertEqual(cols[0].id, "go_default")
+      self.assertEqual(
+          cols[0].ignored_disabled_suites, ("ignored_suite.textproto",)
+      )
       self.assertEqual(cols[0].disabled_suites, ("block_ext.textproto",))
       self.assertEqual(cols[0].configured_skips, ("enums/strong_proto2",))
       self.assertEqual(cols[0].absent_suites, ("future.textproto",))
@@ -220,22 +216,22 @@ columns:
 
       notes_path = os.path.join(tmpdir, "notes.yaml")
       with open(notes_path, "w", encoding="utf-8") as f:
-        f.write("""
-notes:
-  simple/sec: "Simple string note"
-  mapped/all_reg:
-    note: "Shared note"
-    allow_regression: true
-    columns:
-      go_default: "Go column note"
-  mapped/list_reg:
-    allow_regression:
-      - go_default
-      - cpp_modern
-callouts:
-  - title: "Note Title"
-    body: "Note Body"
-""")
+        f.write(textwrap.dedent("""
+            notes:
+              simple/sec: "Simple string note"
+              mapped/all_reg:
+                note: "Shared note"
+                allow_regression: true
+                columns:
+                  go_default: "Go column note"
+              mapped/list_reg:
+                allow_regression:
+                  - go_default
+                  - cpp_modern
+            callouts:
+              - title: "Note Title"
+                details: "Note Body"
+            """))
       notes_cfg = gcm.load_notes(notes_path)
       self.assertEqual(
           notes_cfg.notes,
@@ -256,8 +252,41 @@ callouts:
           },
       )
       self.assertEqual(
-          notes_cfg.callouts, [{"title": "Note Title", "body": "Note Body"}]
+          notes_cfg.callouts,
+          (gcm.Callout(title="Note Title", details="Note Body"),),
       )
+
+      bad_key_notes = os.path.join(tmpdir, "bad_key_notes.yaml")
+      with open(bad_key_notes, "w", encoding="utf-8") as f:
+        f.write(textwrap.dedent("""
+            notes: {}
+            callouts:
+              - title: "Alert"
+                body: "Invalid key"
+            """))
+      with self.assertRaisesRegex(ValueError, "unknown key"):
+        gcm.load_notes(bad_key_notes)
+
+      bad_type_notes = os.path.join(tmpdir, "bad_type_notes.yaml")
+      with open(bad_type_notes, "w", encoding="utf-8") as f:
+        f.write(textwrap.dedent("""
+            notes: {}
+            callouts:
+              - "not a mapping"
+            """))
+      with self.assertRaisesRegex(ValueError, "must be a mapping"):
+        gcm.load_notes(bad_type_notes)
+
+      missing_title_notes = os.path.join(tmpdir, "missing_title_notes.yaml")
+      with open(missing_title_notes, "w", encoding="utf-8") as f:
+        f.write(textwrap.dedent("""
+            notes: {}
+            callouts:
+              - title: "   "
+                details: "Missing title"
+            """))
+      with self.assertRaisesRegex(ValueError, "non-empty 'title'"):
+        gcm.load_notes(missing_title_notes)
 
   def test_cell_status_precedence_and_dashboard_disabled_suites(self):
     report = gcm.ConformanceReport(
@@ -693,12 +722,14 @@ callouts:
             ("wildcard_suite/*", "go"): "Go wildcard col note",
         },
         allowed_regressions={},
-        callouts=[{
-            "title": "Known Issue",
-            "runtimes": "Go, C++",
-            "tracking": "issue/1",
-            "details": "Detailed explanation.",
-        }],
+        callouts=(
+            gcm.Callout(
+                title="Known Issue",
+                runtimes="Go, C++",
+                tracking="issue/1",
+                details="Detailed explanation.",
+            ),
+        ),
     )
     # Passing cell ignores column note; skipped cell includes column note.
     cells = [
@@ -784,6 +815,7 @@ callouts:
     self.assertIn("### Non-Conforming Suites & Known Issues", md)
     self.assertIn("**Known Issue**", md)
     self.assertIn("| **Runtime Version** | — | `v0.27.0` | `n/a` |", md)
+    self.assertIn("| :--- | :--- | :--- | :--- | :--- |", md)
 
   def test_normalize_markdown_preserves_bold_wrapped_prose_in_bullets(self):
     md_wrapped_before_bold = (
@@ -848,14 +880,14 @@ callouts:
     self.assertIn("nonexistent_test", skip_errors[0])
 
     # Skip patterns referencing absent suites, sections, or tests (or present
-    # in testdata_suites) are accepted when manifest_column or testdata_suites
-    # is provided.
+    # in testdata_suites) are accepted when corpus tests exist, whereas typos
+    # inside absent suites are caught whenever corpus/testdata is provided.
     col_with_absent = gcm.ManifestColumn(
         id="cpp",
         runtime="cpp",
         config="modern",
         label="C++",
-        absent_suites=("lists_ext.textproto",),
+        absent_suites=("lists_ext.textproto", "type_deduction.textproto"),
         absent_sections=("namespace/namespace_shadowing",),
         absent_tests=(
             "basic/functions/unbound/nested",
@@ -869,6 +901,7 @@ callouts:
         spec_commit="0.25.1",
         configured_skips=(
             "lists_ext/sort/int_list",
+            "type_deductions/type_decay/t_decay",
             "namespace/namespace_shadowing/basic",
             "basic/functions/unbound",
             "legacy_short_test_key",
@@ -877,6 +910,17 @@ callouts:
         suites=(),
     )
     testdata_suites = [
+        ("lists_ext", "lists_ext.textproto", [("sort", ["int_list"])]),
+        (
+            "type_deductions",
+            "type_deduction.textproto",
+            [("type_decay", ["t_decay"])],
+        ),
+        (
+            "namespace",
+            "namespace.textproto",
+            [("namespace_shadowing", ["basic"])],
+        ),
         (
             "testdata_only",
             "testdata_only.textproto",
@@ -899,6 +943,39 @@ callouts:
             manifest_column=col_with_absent,
         ),
         [],
+    )
+
+    report_with_absent_typo = gcm.ConformanceReport(
+        runtime="cpp",
+        config="modern",
+        runtime_version="v0.16.1",
+        spec_commit="0.25.1",
+        configured_skips=("lists_ext/sort/nonexistent_test",),
+        suites=(),
+    )
+    typo_errors = gcm.validate_skips(
+        report_with_absent_typo,
+        testdata_suites=testdata_suites,
+        corpus_prefixes=corpus_prefixes,
+        manifest_column=col_with_absent,
+    )
+    self.assertEqual(len(typo_errors), 1)
+    self.assertIn("nonexistent_test", typo_errors[0])
+
+    # Wildcard absent prefix fallback applies only when neither testdata_suites
+    # nor corpus_prefixes is available (and maps type_deduction.textproto to
+    # type_deductions).
+    self.assertEqual(
+        gcm.validate_skips(
+            report_with_absent_skips,
+            testdata_suites=None,
+            corpus_prefixes=None,
+            manifest_column=col_with_absent,
+        ),
+        [
+            "[cpp/modern] Unmatched skip pattern: 'testdata_only/sec1/sub/t1'"
+            " does not match any (suite, section, test) in corpus."
+        ],
     )
 
   def test_validate_notes_catches_missing_note_and_internal_bug_link(self):
@@ -936,7 +1013,7 @@ callouts:
         rendered_cells,
         {"other/sec": "See b/123456"},
         column_notes={("other/sec", "go"): "Internal b/654321"},
-        callouts=[{"title": "Alert", "body": "Ref b/999999"}],
+        callouts=(gcm.Callout(title="Alert", details="Ref b/999999"),),
     )
     self.assertEqual(len(note_errors), 4)
     self.assertIn("basic/sec1", note_errors[0])
@@ -1276,8 +1353,9 @@ callouts:
         baseline_markdown=baseline_md,
         allowed_regressions={},
     )
-    self.assertEqual(len(md_reg_errors), 1)
-    self.assertIn("[cpp/default]", md_reg_errors[0])
+    self.assertEqual(len(md_reg_errors), 2)
+    self.assertIn("missing column 'Go'", md_reg_errors[0])
+    self.assertIn("[cpp/default]", md_reg_errors[1])
 
     # Completely missing row in rendered_cells is also caught as a regression.
     missing_row_errors = gcm.validate_no_regressions_from_markdown(
@@ -1286,8 +1364,9 @@ callouts:
         baseline_markdown=baseline_md,
         allowed_regressions={},
     )
-    self.assertEqual(len(missing_row_errors), 1)
-    self.assertIn("current is `n/a` (na)", missing_row_errors[0])
+    self.assertEqual(len(missing_row_errors), 2)
+    self.assertIn("missing column 'Go'", missing_row_errors[0])
+    self.assertIn("current is `n/a` (na)", missing_row_errors[1])
 
   def test_validate_no_regressions_skipped_cell_transitions_and_allowlist(self):
     manifest = [
@@ -1673,9 +1752,7 @@ callouts:
     manifest_path = os.path.join(tools_dir, "conformance_manifest.yaml")
     notes_path = os.path.join(tools_dir, "conformance_notes.yaml")
     testdata_dir = os.path.join(spec_root, "tests/simple/testdata")
-    markdown_path = os.path.join(spec_root, "g3doc/conformance.md")
-    if not os.path.exists(markdown_path):
-      markdown_path = os.path.join(spec_root, "doc/conformance.md")
+    markdown_path = os.path.join(spec_root, "doc/conformance.md")
 
     exit_code = gcm.main([
         "--manifest",
@@ -1791,23 +1868,45 @@ _AUG_LIST += ["suite/sec4/t6"]
       with self.assertRaisesRegex(ValueError, "not found"):
         gcm.extract_build_skip_list(build_path, "_NONEXISTENT")
 
-  def test_iter_path_prefixes_and_is_test_path_skipped(self):
-    self.assertEqual(
-        list(gcm._iter_path_prefixes("suite/sec/test")),
-        ["suite", "suite/sec", "suite/sec/test"],
+  def test_skip_prefix_boundary_matching(self):
+    corpus: list[gcm.SuiteCorpus] = [
+        (
+            "suite",
+            "suite.textproto",
+            [
+                ("sec", ["test"]),
+                ("sec_extra", ["test"]),
+                ("other_sec", ["test"]),
+            ],
+        ),
+        ("other_suite", "other_suite.textproto", [("s", ["t1"])]),
+    ]
+    report = gcm.synthesize_report_from_corpus(
+        runtime="go",
+        config="default",
+        runtime_version="HEAD",
+        spec_commit="HEAD",
+        testdata_suites=corpus,
+        enabled_files={"suite.textproto", "other_suite.textproto"},
+        configured_skips=("suite/sec", "other_suite"),
     )
-    self.assertEqual(
-        list(gcm._iter_path_prefixes("suite")),
-        ["suite"],
-    )
-    skip_set = {"suite/sec", "other_suite"}
-    self.assertTrue(gcm._is_test_path_skipped("suite/sec/test", skip_set))
-    self.assertTrue(gcm._is_test_path_skipped("suite/sec", skip_set))
-    self.assertTrue(gcm._is_test_path_skipped("other_suite", skip_set))
-    self.assertFalse(
-        gcm._is_test_path_skipped("suite/other_sec/test", skip_set)
-    )
-    self.assertFalse(gcm._is_test_path_skipped("suite", skip_set))
+    suite_rep = report.get_suite("suite")
+    other_rep = report.get_suite("other_suite")
+    self.assertIsNotNone(suite_rep)
+    self.assertIsNotNone(other_rep)
+    assert suite_rep is not None and other_rep is not None
+
+    sec = suite_rep.get_section("sec")
+    sec_extra = suite_rep.get_section("sec_extra")
+    other_sec = suite_rep.get_section("other_sec")
+    other_s = other_rep.get_section("s")
+    assert sec and sec_extra and other_sec and other_s
+
+    self.assertEqual(sec.tests[0].status, "skipped")
+    self.assertEqual(sec_extra.tests[0].status, "pass")
+    self.assertEqual(other_sec.tests[0].status, "pass")
+    self.assertEqual(other_s.tests[0].status, "skipped")
+    self.assertEqual(gcm.validate_skips(report, testdata_suites=corpus), [])
 
   def test_sync_manifest_from_build_files(self):
     manifest_yaml = """
@@ -1990,12 +2089,14 @@ _GO_SKIPS = [
         "C++ (Modern) skips `type_decay`; Java skips `t1`, `t2`",
     )
 
-  def test_insert_manifest_skips_edge_cases(self):
+  def test_sync_manifest_skips_insertion_shapes(self):
     manifest_yaml = """columns:
   - id: col_followed_by_key
     runtime: go
     config: default
     label: "Go"
+    build_file: "BUILD"
+    build_skip_var: "_SKIPS_1"
     configured_skips:
       - suite/sec/existing_skip
     ignored_build_skips:
@@ -2004,6 +2105,8 @@ _GO_SKIPS = [
     runtime: cpp
     config: modern
     label: "C++"
+    build_file: "BUILD"
+    build_skip_var: "_SKIPS_2"
     configured_skips: []
     absent_sections:
       - suite/absent_sec
@@ -2011,16 +2114,56 @@ _GO_SKIPS = [
     runtime: java
     config: default
     label: "Java"
+    build_file: "BUILD"
+    build_skip_var: "_SKIPS_3"
     runtime_version: "v1.0"
 """
-    updated = gcm._insert_manifest_skips(
-        manifest_yaml,
-        {
-            "col_followed_by_key": ["suite/sec/new_skip_1"],
-            "col_empty_bracketed": ["suite/sec/new_skip_2"],
-            "col_missing_skips_key": ["suite/sec/new_skip_3"],
-        },
+    build_content = """
+_SKIPS_1 = ["suite/sec/existing_skip", "suite/sec/new_skip_1"]
+_SKIPS_2 = ["suite/sec/new_skip_2"]
+_SKIPS_3 = ["suite/sec/new_skip_3"]
+"""
+    corpus: list[gcm.SuiteCorpus] = [(
+        "suite",
+        "suite.textproto",
+        [(
+            "sec",
+            [
+                "existing_skip",
+                "ignored_skip",
+                "new_skip_1",
+                "new_skip_2",
+                "new_skip_3",
+            ],
+        )],
+    )]
+    with tempfile.TemporaryDirectory() as tmpdir:
+      manifest_path = os.path.join(tmpdir, "manifest.yaml")
+      with open(manifest_path, "w", encoding="utf-8") as f:
+        f.write(manifest_yaml)
+      with open(os.path.join(tmpdir, "BUILD"), "w", encoding="utf-8") as f:
+        f.write(build_content)
+
+      self.assertTrue(
+          gcm.sync_manifest_from_build_files(
+              manifest_path, corpus, build_root=tmpdir
+          )
+      )
+      self.assertFalse(
+          gcm.sync_manifest_from_build_files(
+              manifest_path, corpus, build_root=tmpdir
+          )
+      )
+      with open(manifest_path, "r", encoding="utf-8") as f:
+        updated = f.read()
+      reloaded = gcm.load_manifest(manifest_path)
+
+    self.assertEqual(
+        reloaded[0].configured_skips,
+        ("suite/sec/existing_skip", "suite/sec/new_skip_1"),
     )
+    self.assertEqual(reloaded[1].configured_skips, ("suite/sec/new_skip_2",))
+    self.assertEqual(reloaded[2].configured_skips, ("suite/sec/new_skip_3",))
     self.assertIn(
         "    configured_skips:\n"
         "      - suite/sec/existing_skip\n"
@@ -2037,10 +2180,6 @@ _GO_SKIPS = [
         updated,
     )
     self.assertIn(
-        "  - id: col_missing_skips_key\n"
-        "    runtime: java\n"
-        "    config: default\n"
-        '    label: "Java"\n'
         '    runtime_version: "v1.0"\n'
         "    configured_skips:\n"
         "      - suite/sec/new_skip_3\n",
@@ -2049,12 +2188,13 @@ _GO_SKIPS = [
 
   def test_resolve_workspace_args_defaults_and_relative_paths(self):
     with tempfile.TemporaryDirectory() as tmpdir:
-      spec_dir = os.path.join(tmpdir, "third_party/cel/spec")
+      spec_dir = tmpdir
+      doc_rel = "doc/conformance.md"
+      os.makedirs(os.path.join(spec_dir, "doc"), exist_ok=True)
       os.makedirs(os.path.join(spec_dir, "tools"), exist_ok=True)
       os.makedirs(
           os.path.join(spec_dir, "tests/simple/testdata"), exist_ok=True
       )
-      os.makedirs(os.path.join(spec_dir, "g3doc"), exist_ok=True)
       manifest_file = os.path.join(spec_dir, "tools/conformance_manifest.yaml")
       with open(manifest_file, "w", encoding="utf-8") as f:
         f.write("columns: []\n")
@@ -2087,10 +2227,7 @@ _GO_SKIPS = [
             args_zero.testdata_dir,
             os.path.join(spec_dir, "tests/simple/testdata"),
         )
-        self.assertEqual(
-            args_zero.output,
-            os.path.join(spec_dir, "g3doc/conformance.md"),
-        )
+        self.assertEqual(args_zero.output, os.path.join(spec_dir, doc_rel))
 
         args_partial = argparse.Namespace(
             manifest=None,
@@ -2098,7 +2235,7 @@ _GO_SKIPS = [
             testdata_dir=None,
             reports=[],
             output=None,
-            check_consistency="g3doc/conformance.md",
+            check_consistency=doc_rel,
             baseline_markdown=None,
             build_root="/custom/build/root",
         )
@@ -2111,7 +2248,7 @@ _GO_SKIPS = [
         )
         self.assertEqual(
             args_partial.check_consistency,
-            os.path.join(spec_dir, "g3doc/conformance.md"),
+            os.path.join(spec_dir, doc_rel),
         )
       finally:
         if orig_ws is not None:
@@ -2154,6 +2291,498 @@ _GO_SKIPS = [
     self.assertIn("sec_absent", suite_sections["suite"])
     self.assertNotIn("sec_excluded", suite_sections["suite"])
 
+  def test_not_enabled_and_empty_sections_status_and_manifest_validation(self):
+    report = gcm.ConformanceReport(
+        runtime="go",
+        config="default",
+        runtime_version="v0.33.2",
+        spec_commit="HEAD",
+        configured_skips=(),
+        suites=(
+            gcm.SuiteReport(
+                name="enabled_suite",
+                file="enabled_suite.textproto",
+                enabled=True,
+                sections=(
+                    gcm.SectionReport(name="empty_sec", tests=()),
+                    gcm.SectionReport(
+                        name="mixed_not_enabled",
+                        tests=(
+                            gcm.TestResult("t1", "pass"),
+                            gcm.TestResult("t2", "not_enabled"),
+                        ),
+                    ),
+                ),
+            ),
+            gcm.SuiteReport(
+                name="disabled_suite",
+                file="disabled_suite.textproto",
+                enabled=False,
+                sections=(
+                    gcm.SectionReport(name="empty_sec", tests=()),
+                    gcm.SectionReport(
+                        name="mixed_not_enabled",
+                        tests=(
+                            gcm.TestResult("t1", "pass"),
+                            gcm.TestResult("t2", "not_enabled"),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    empty_enabled = gcm.resolve_section_cell(
+        report, "enabled_suite", "empty_sec"
+    )
+    self.assertEqual(empty_enabled.category, "na")
+    self.assertEqual(empty_enabled.rendered, "`n/a`")
+
+    empty_disabled = gcm.resolve_section_cell(
+        report, "disabled_suite", "empty_sec"
+    )
+    self.assertEqual(empty_disabled.category, "not_enabled")
+    self.assertEqual(empty_disabled.rendered, "⬜")
+
+    mixed_enabled = gcm.resolve_section_cell(
+        report, "enabled_suite", "mixed_not_enabled"
+    )
+    self.assertEqual(mixed_enabled.category, "skipped")
+    self.assertEqual(mixed_enabled.rendered, "⚠️ 1/2")
+
+    mixed_disabled = gcm.resolve_section_cell(
+        report, "disabled_suite", "mixed_not_enabled"
+    )
+    self.assertEqual(mixed_disabled.category, "not_enabled")
+    self.assertEqual(mixed_disabled.rendered, "⬜ (⚠️ 1/2)")
+
+    manifest = [
+        gcm.ManifestColumn(id="go", runtime="go", config="default", label="Go")
+    ]
+    val_errors = gcm.validate_manifest(manifest, {("go", "default"): report})
+    self.assertEqual(len(val_errors), 1)
+    self.assertIn("enabled_suite/mixed_not_enabled", val_errors[0])
+    self.assertIn("not_enabled", val_errors[0])
+
+  def test_sync_manifest_indentation_comments_and_yaml_quoting(self):
+    manifest_yaml = textwrap.dedent("""\
+    columns:
+        - id: custom
+          runtime: go
+          config: default
+          label: "Go"
+          build_file: "BUILD"
+          build_skip_var: "_SKIPS"
+          build_tests_var: "_TESTS"
+          configured_skips:
+              # Existing comment inside list
+              - suite/sec/existing_skip
+              # Trailing comment in block
+          disabled_suites:
+              # Empty block with comment only
+    """)
+    special_entries = [
+        "-dash_start",
+        "suite/sec/with: colon",
+        "suite/sec/with #hash",
+        "true",
+        "yes",
+        "123",
+        "~",
+    ]
+    build_content = "\n".join([
+        "_TESTS = [",
+        '    "suite.textproto",',
+        '    "dash.textproto",',
+        '    "bool.textproto",',
+        '    "yes.textproto",',
+        '    "123.textproto",',
+        '    "tilde.textproto",',
+        "]",
+        "_SKIPS = [",
+        *[f'    "{entry}",' for entry in special_entries],
+        "]",
+    ])
+    corpus: list[gcm.SuiteCorpus] = [
+        (
+            "suite",
+            "suite.textproto",
+            [(
+                "sec",
+                [
+                    "existing_skip",
+                    "with: colon",
+                    "with #hash",
+                ],
+            )],
+        ),
+        ("-dash_start", "dash.textproto", [("s", ["t"])]),
+        ("true", "bool.textproto", [("s", ["t"])]),
+        ("yes", "yes.textproto", [("s", ["t"])]),
+        ("123", "123.textproto", [("s", ["t"])]),
+        ("~", "tilde.textproto", [("s", ["t"])]),
+        ("new_disabled", "new_disabled.textproto", [("s", ["t"])]),
+    ]
+    with tempfile.TemporaryDirectory() as tmpdir:
+      path = os.path.join(tmpdir, "manifest.yaml")
+      with open(path, "w", encoding="utf-8") as f:
+        f.write(manifest_yaml)
+      with open(os.path.join(tmpdir, "BUILD"), "w", encoding="utf-8") as f:
+        f.write(build_content)
+      self.assertTrue(
+          gcm.sync_manifest_from_build_files(path, corpus, build_root=tmpdir)
+      )
+      with open(path, "r", encoding="utf-8") as f:
+        updated = f.read()
+      loaded = gcm.load_manifest(path)
+
+    self.assertIn("# Existing comment inside list", updated)
+    self.assertIn("# Trailing comment in block", updated)
+    self.assertIn("# Empty block with comment only", updated)
+    self.assertIn("          - suite/sec/existing_skip\n", updated)
+    self.assertIn("        - new_disabled.textproto\n", updated)
+    # Plain suite/test skips stay unquoted while YAML-special scalars quote.
+    expected_skips = ("suite/sec/existing_skip", *special_entries)
+    self.assertEqual(loaded[0].configured_skips, expected_skips)
+    self.assertEqual(loaded[0].disabled_suites, ("new_disabled.textproto",))
+
+  def test_sync_manifest_ignored_disabled_suites_and_build_ast_cache(self):
+    manifest_yaml = textwrap.dedent("""\
+    columns:
+      - id: col_a
+        runtime: cpp
+        config: modern
+        label: "C++ Modern"
+        build_file: "cpp/BUILD"
+        build_skip_var: "_SKIPS"
+        build_tests_var: "_ALL_TESTS"
+        ignored_disabled_suites:
+          - ignored_suite.textproto
+        disabled_suites: []
+        configured_skips: []
+      - id: col_b
+        runtime: cpp
+        config: legacy
+        label: "C++ Legacy"
+        build_file: "cpp/BUILD"
+        build_skip_var: "_SKIPS"
+        build_tests_var: "_ALL_TESTS"
+        disabled_suites: []
+        configured_skips: []
+    """)
+    cpp_build = textwrap.dedent("""\
+    _ALL_TESTS = [
+        "//tests:suite.textproto",
+    ]
+    _SKIPS = [
+        "suite/sec1/t1",
+        "ignored_suite/sec1/t_ignored",
+    ]
+    """)
+    corpus: list[gcm.SuiteCorpus] = [
+        ("suite", "suite.textproto", [("sec1", ["t1"])]),
+        (
+            "ignored_suite",
+            "ignored_suite.textproto",
+            [("sec1", ["t_ignored"])],
+        ),
+    ]
+    with tempfile.TemporaryDirectory() as tmpdir:
+      manifest_path = os.path.join(tmpdir, "manifest.yaml")
+      with open(manifest_path, "w", encoding="utf-8") as f:
+        f.write(manifest_yaml)
+      os.makedirs(os.path.join(tmpdir, "cpp"), exist_ok=True)
+      with open(os.path.join(tmpdir, "cpp/BUILD"), "w", encoding="utf-8") as f:
+        f.write(cpp_build)
+
+      with mock.patch.object(
+          gcm, "extract_build_skip_list", wraps=gcm.extract_build_skip_list
+      ) as mock_extract:
+        changed = gcm.sync_manifest_from_build_files(
+            manifest_path, corpus, build_root=tmpdir
+        )
+      self.assertTrue(changed)
+      # Both columns share (cpp/BUILD, _ALL_TESTS) and (cpp/BUILD, _SKIPS),
+      # so each list is parsed once across both columns.
+      self.assertEqual(mock_extract.call_count, 2)
+
+      reloaded = gcm.load_manifest(manifest_path)
+      self.assertEqual(reloaded[0].disabled_suites, ())
+      self.assertEqual(
+          reloaded[0].configured_skips,
+          ("suite/sec1/t1", "ignored_suite/sec1/t_ignored"),
+      )
+      self.assertEqual(
+          reloaded[1].disabled_suites, ("ignored_suite.textproto",)
+      )
+      self.assertEqual(reloaded[1].configured_skips, ("suite/sec1/t1",))
+
+  def test_validate_skips_known_filename_mapping_and_strict_corpus_checks(
+      self,
+  ):
+    col = gcm.ManifestColumn(
+        id="go",
+        runtime="go",
+        config="default",
+        label="Go",
+        absent_suites=("type_deduction.textproto",),
+        absent_sections=("lists_ext/sort",),
+    )
+    corpus: list[gcm.SuiteCorpus] = [
+        (
+            "type_deductions",
+            "type_deduction.textproto",
+            [("wrappers", ["wrapper_promotion_2"])],
+        ),
+        ("lists_ext", "lists_ext.textproto", [("sort", ["sort_ints"])]),
+    ]
+    valid_report = gcm.ConformanceReport(
+        runtime="go",
+        config="default",
+        runtime_version="v0.33.2",
+        spec_commit="ba58ae5",
+        configured_skips=(
+            "type_deductions/wrappers/wrapper_promotion_2",
+            "lists_ext/sort/sort_ints",
+        ),
+        suites=(),
+    )
+    self.assertEqual(
+        gcm.validate_skips(
+            valid_report, testdata_suites=corpus, manifest_column=col
+        ),
+        [],
+    )
+    # Without corpus/testdata, absent_suites maps type_deduction.textproto ->
+    # type_deductions/ and absent_sections allows lists_ext/sort/ wildcards.
+    self.assertEqual(
+        gcm.validate_skips(
+            valid_report,
+            testdata_suites=None,
+            corpus_prefixes=None,
+            manifest_column=col,
+        ),
+        [],
+    )
+
+    typo_report = gcm.ConformanceReport(
+        runtime="go",
+        config="default",
+        runtime_version="v0.33.2",
+        spec_commit="ba58ae5",
+        configured_skips=(
+            "type_deductions/wrappers/nonexistent_test",
+            "lists_ext/sort/nonexistent_sort",
+        ),
+        suites=(),
+    )
+    errs = gcm.validate_skips(
+        typo_report,
+        testdata_suites=corpus,
+        corpus_prefixes=gcm.collect_corpus_prefixes(corpus),
+        manifest_column=col,
+    )
+    self.assertEqual(len(errs), 2)
+    self.assertIn("nonexistent_test", errs[0])
+    self.assertIn("nonexistent_sort", errs[1])
+
+  def test_markdown_table_pipe_escaping_and_baseline_roundtrip(self):
+    manifest = [
+        gcm.ManifestColumn(
+            id="go",
+            runtime="go",
+            config="default",
+            label="Go | Alt",
+            runtime_version="v0.33.2 | rc1",
+            spec_commit="head | ba58ae5",
+        ),
+    ]
+    report = gcm.ConformanceReport(
+        runtime="go",
+        config="default",
+        runtime_version="v0.33.2 | rc1",
+        spec_commit="head | ba58ae5",
+        configured_skips=("basic/sec1/t2",),
+        suites=(
+            gcm.SuiteReport(
+                name="basic",
+                file="basic.textproto",
+                enabled=True,
+                sections=(
+                    gcm.SectionReport(
+                        name="sec1",
+                        tests=(
+                            gcm.TestResult("t1", "pass"),
+                            gcm.TestResult("t2", "skipped"),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    notes_cfg = gcm.NotesConfig(
+        notes={"basic/sec1": "First | Second\r\nThird line"},
+        allowed_regressions={},
+        callouts=(),
+    )
+    md, _, cells = gcm.render_markdown(
+        manifest=manifest,
+        reports={("go", "default"): report},
+        notes_config=notes_cfg,
+    )
+    self.assertIn(r"Go \| Alt", md)
+    self.assertIn(r"`v0.33.2 \| rc1`", md)
+    self.assertIn(r"`head \| ba58ae5`", md)
+    self.assertIn(r"First \| Second Third line", md)
+    self.assertNotIn("Third\n", md)
+
+    parsed = gcm.parse_baseline_markdown(md, manifest)
+    self.assertEqual(
+        parsed[("basic", "sec1")][0],
+        gcm.CellStatus(
+            category="skipped", rendered="⚠️ 1/2", passed=1, total=2
+        ),
+    )
+    self.assertEqual(
+        gcm.validate_no_regressions_from_markdown(
+            manifest=manifest,
+            rendered_cells=cells,
+            baseline_markdown=md,
+            allowed_regressions={},
+        ),
+        [],
+    )
+
+  def test_regressions_from_fail_and_dashboard_not_enabled_and_missing_headers(
+      self,
+  ):
+    manifest = [
+        gcm.ManifestColumn(id="go", runtime="go", config="default", label="Go")
+    ]
+    fail_baseline = textwrap.dedent("""\
+    | Suite | Section | Go | Notes |
+    | :--- | :--- | :--- | :--- |
+    | [`basic`](#) | [`sec1`](#) | ❌ 1/2 | |
+    """)
+    for bad_cell in (
+        gcm.CellStatus("not_enabled", "⬜", 0, 0),
+        gcm.CellStatus("not_run", "❓", 0, 0),
+        gcm.CellStatus("na", "`n/a`", 0, 0),
+        gcm.CellStatus("fail", "❌ 1/3", 1, 3),
+        gcm.CellStatus("fail", "❌ 0/2", 0, 2),
+    ):
+      errs = gcm.validate_no_regressions_from_markdown(
+          manifest=manifest,
+          rendered_cells={("basic", "sec1"): [bad_cell]},
+          baseline_markdown=fail_baseline,
+          allowed_regressions={},
+      )
+      self.assertEqual(
+          len(errs), 1, msg=f"Expected fail regression: {bad_cell}"
+      )
+
+    for ok_cell in (
+        gcm.CellStatus("fail", "❌ 1/2", 1, 2),
+        gcm.CellStatus("skipped", "⚠️ 1/2", 1, 2),
+        gcm.CellStatus("pass", "✅ 2/2", 2, 2),
+    ):
+      self.assertEqual(
+          gcm.validate_no_regressions_from_markdown(
+              manifest=manifest,
+              rendered_cells={("basic", "sec1"): [ok_cell]},
+              baseline_markdown=fail_baseline,
+              allowed_regressions={},
+          ),
+          [],
+          msg=f"Unexpected regression for {ok_cell}",
+      )
+
+    dash_baseline = textwrap.dedent("""\
+    | Suite | Section | Go | Notes |
+    | :--- | :--- | :--- | :--- |
+    | [`basic`](#) | [`sec1`](#) | ⬜ (⚠️ 1/2) | |
+    """)
+    for bad_cell in (
+        gcm.CellStatus("not_run", "❓", 0, 0),
+        gcm.CellStatus("na", "`n/a`", 0, 0),
+        gcm.CellStatus("fail", "❌ 1/2", 1, 2),
+        gcm.CellStatus("not_enabled", "⬜", 0, 0),
+        gcm.CellStatus("not_enabled", "⬜ (❌ 1/2)", 1, 2),
+        gcm.CellStatus("not_enabled", "⬜ (⚠️ 1/3)", 1, 3),
+    ):
+      errs = gcm.validate_no_regressions_from_markdown(
+          manifest=manifest,
+          rendered_cells={("basic", "sec1"): [bad_cell]},
+          baseline_markdown=dash_baseline,
+          allowed_regressions={},
+      )
+      self.assertEqual(
+          len(errs), 1, msg=f"Expected dashboard regression: {bad_cell}"
+      )
+
+    expanded_manifest = [
+        gcm.ManifestColumn(id="go", runtime="go", config="default", label="Go"),
+        gcm.ManifestColumn(
+            id="rust", runtime="rust", config="default", label="Rust"
+        ),
+    ]
+    missing_hdr_errs = gcm.validate_no_regressions_from_markdown(
+        manifest=expanded_manifest,
+        rendered_cells={
+            ("basic", "sec1"): [
+                gcm.CellStatus("pass", "✅ 2/2", 2, 2),
+                gcm.CellStatus("pass", "✅ 2/2", 2, 2),
+            ]
+        },
+        baseline_markdown=fail_baseline,
+        allowed_regressions={},
+    )
+    self.assertEqual(len(missing_hdr_errs), 1)
+    self.assertIn("missing column 'Rust'", missing_hdr_errs[0])
+
+  def test_resolve_workspace_args_resolves_relative_reports_and_build_root(
+      self,
+  ):
+    with tempfile.TemporaryDirectory() as tmpdir:
+      ws_dir = os.path.join(tmpdir, "ws")
+      cwd_dir = os.path.join(tmpdir, "cwd")
+      os.makedirs(ws_dir, exist_ok=True)
+      os.makedirs(os.path.join(cwd_dir, "sub"), exist_ok=True)
+      os.makedirs(os.path.join(cwd_dir, "custom_build"), exist_ok=True)
+      report_file = os.path.join(cwd_dir, "sub/report.json")
+      with open(report_file, "w", encoding="utf-8") as f:
+        f.write("{}")
+
+      orig_ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+      orig_cwd = os.environ.get("BUILD_WORKING_DIRECTORY")
+      try:
+        os.environ["BUILD_WORKSPACE_DIRECTORY"] = ws_dir
+        os.environ["BUILD_WORKING_DIRECTORY"] = cwd_dir
+
+        args = argparse.Namespace(
+            manifest="manifest.yaml",
+            notes="notes.yaml",
+            testdata_dir=None,
+            reports=["sub/report.json"],
+            output=None,
+            check_consistency=None,
+            baseline_markdown=None,
+            build_root="custom_build",
+        )
+        resolved_root = gcm._resolve_workspace_args(args)
+        self.assertEqual(args.reports, [report_file])
+        expected_build_root = os.path.join(cwd_dir, "custom_build")
+        self.assertEqual(args.build_root, expected_build_root)
+        self.assertEqual(resolved_root, expected_build_root)
+      finally:
+        if orig_ws is not None:
+          os.environ["BUILD_WORKSPACE_DIRECTORY"] = orig_ws
+        else:
+          os.environ.pop("BUILD_WORKSPACE_DIRECTORY", None)
+        if orig_cwd is not None:
+          os.environ["BUILD_WORKING_DIRECTORY"] = orig_cwd
+        else:
+          os.environ.pop("BUILD_WORKING_DIRECTORY", None)
+
 
 if __name__ == "__main__":
-  absltest.main()
+  unittest.main()
