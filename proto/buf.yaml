@@ -4,9 +4,6 @@ deps:
 build:
   excludes: [test, dev]
 lint:
-  ignore:
-    - cel/expr/conformance/proto2/test_all_types.proto
-    - cel/expr/conformance/proto3/test_all_types.proto
   except:
     - PACKAGE_VERSION_SUFFIX
     - ENUM_VALUE_PREFIX
