@@ -5,3 +5,8 @@ package(
 licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"] + glob(["testdata/*.textproto"]))
+
+filegroup(
+    name = "simple_testdata",
+    srcs = glob(["testdata/*.textproto"]),
+)
