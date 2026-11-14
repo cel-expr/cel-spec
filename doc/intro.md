@@ -35,7 +35,7 @@ matches(account.phone_number, "[0-9-]+")        // true if number matches regexp
 ```
 
 CEL expressions support most operators and functions one would expect when
-working with protocol buffers: boolean operators, relations, arithmetics on
+working with protocol buffers: boolean operators, relations, arithmetic on
 numbers, string and byte string operations, and operations to deal with lists
 and maps. The full reference of standard operations is described in the
 [language definition](langdef.md#standard). Note that applications of CEL may add

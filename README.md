@@ -42,7 +42,7 @@ The required components of a system that supports CEL are:
 *   An evaluator library that takes the binary format in the context and
     produces a result, usually a Boolean.
 
-For use cases which require persistence or cross-process communcation, it is
+For use cases which require persistence or cross-process communication, it is
 highly recommended to serialize the type-checked expression as a protocol
 buffer. The CEL team will maintains canonical protocol buffers for ASTs and
 will keep these versions identical and wire-compatible in perpetuity:

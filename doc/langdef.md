@@ -398,7 +398,7 @@ represented during static type checking.
 A CEL implementation can add new types to the language. These types will be
 given names in the same namespace as the other types, but will have no special
 support in the language syntax. The only way to construct or use values of these
-abstract types is through functions which the implementor must also provide.
+abstract types is through functions which the implementer must also provide.
 
 Commonly, an abstract type will have a representation as a protocol buffer, so
 that it can be stored or transmitted across a network. In this case, the
