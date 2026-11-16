@@ -1,0 +1,730 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "ai.common_env"
+
+extensions:
+  - name: "encoders"
+  - name: "lists"
+  - name: "math"
+  - name: "regex"
+  - name: "sets"
+  - name: "strings"
+    version: "latest"
+  - name: "two-var-comprehensions"
+
+variables:
+  - name: "now"
+    type_name: "google.protobuf.Timestamp"
+    description: |
+      The current time.
+
+functions:
+  - name: "ai.finding"
+    description: |
+      Returns a cel.expr.ai.Finding with the given value and confidence score.
+    overloads:
+      - id: "ai.finding_string_double"
+        examples:
+          - |
+              // Returns a finding with the name 'picc_score' and confidence score 0.5.
+              ai.finding("picc_score", 0.5)
+        args:
+          - type_name: string
+          - type_name: double
+        return:
+          type_name: cel.expr.ai.Finding
+
+  - name: "sensitivityFindings"
+    description: |
+      Returns an optional set of findings from sensitivity labels computed over the input.
+      The labels are identified by the label key, e.g. 'pii' and the output type from the
+      call is optional_type(list(string)) to allow for chaining with other optional valued
+      computations.
+    overloads:
+      - id: "AgentContext_sensitivityFindings_string"
+        examples:
+          - |
+              // Returns the optional list of sensitivity label values for the 'pii' label name.
+              agent.context.sensitivityFindings("pii")
+        target:
+          type_name: cel.expr.ai.AgentContext
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+      - id: "AgentMessage_sensitivityFindings_string"
+        examples:
+          - |
+              // Returns the optional list of sensitivity findings for the 'pii' label name
+              // from the agent input message parts.
+              agent.input.sensitivityFindings("pii")
+          - |
+              // Returns the optional list of sensitivity findings for the 'pii' label name
+              // from the agent output message parts.
+              agent.output.sensitivityFindings("pii")
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+      - id: "AgentMessageSet_sensitivityFindings_string"
+        examples:
+          - |
+              // Returns the optional list of sensitivity findings for the 'pii' label name
+              // from the agent message set.
+              agent.history.sensitivityFindings("pii")
+          - |
+              // Returns the optional list of sensitivity findings for the 'pii' label name
+              // from the user messages within 5 minutes.
+              agent.history
+                  .after(now - duration('5m'))
+                  .sensitivityFindings("pii")
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+      - id: "ToolCall_sensitivityFindings_string"
+        examples:
+        - |
+            // Returns the optional list of findings for the 'pii' sensitivity label name.
+            tool.call.sensitivityFindings("pii")
+        - |
+            // Validates that there is no finding which has a confidence value greater than 0.5.
+            tool.call.sensitivityFindings("pii").orValue([])
+              .all(finding, finding.confidence <= 0.5)
+        target:
+          type_name: cel.expr.ai.ToolCall
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+  - name: "hasAll"
+    description: |
+      Returns true if all values in the list are present in the optional list of findings.
+    overloads:
+      - id: "optional_type(list(Finding))_hasAll_list(string)"
+        examples:
+        - |
+            // Returns true if the tool call has all the 'pii' sensitivity findings:
+            // 'phone_number' and 'ssn'.
+            tool.call.sensitivityFindings("pii").hasAll(["phone_number", "ssn"])
+        target:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: list
+            params:
+              - type_name: string
+        return:
+          type_name: bool
+
+      - id: "optional_type(list(Finding))_hasAll_list(Finding)"
+        examples:
+        - |
+            // Returns true if the tool call has all of the 'pii' sensitivity findings:
+            // 'phone_number' and 'ssn'.
+            tool.call.sensitivityFindings("pii").hasAll([
+              ai.finding("phone_number", 0.5),
+              ai.finding("ssn", 0.5)
+            ])
+        target:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: list
+            params:
+              - type_name: cel.expr.ai.Finding
+        return:
+          type_name: bool
+
+      - id: "optional_type(list(Finding))_hasAll_optional_type(list(Finding))"
+        examples:
+        - |
+            // Returns true if the agent context has all of the 'pii' sensitivity findings with
+            // greater or equal confidence scores associated with the tool call.
+            agent.context.sensitivityFindings("pii").hasAll(tool.call.sensitivityFindings("pii"))
+        target:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: optional_type
+            params:
+              - type_name: list
+                params:
+                  - type_name: cel.expr.ai.Finding
+        return:
+          type_name: bool
+      - id: "list(Finding)_hasAll_list(Finding)"
+        examples:
+        - |
+            // Returns true if the agent context has all of the 'pii' sensitivity findings with
+            // greater or equal confidence scores associated with the tool call.
+            [ai.finding("phone_number", 0.5), ai.finding("ssn", 0.5)].hasAll([ai.finding("phone_number", 0.5)])
+        target:
+          type_name: list
+          params:
+            - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: list
+            params:
+              - type_name: cel.expr.ai.Finding
+        return:
+          type_name: bool
+      - id: "list(Finding)_hasAll_list(string)"
+        examples:
+        - |
+            // Returns true if the agent context has all of the 'pii' sensitivity findings with
+            // greater or equal confidence scores associated with the tool call.
+            [ai.finding("phone_number", 0.5), ai.finding("ssn", 0.5)].hasAll(["phone_number"])
+        target:
+          type_name: list
+          params:
+            - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: list
+            params:
+              - type_name: string
+        return:
+          type_name: bool
+
+  - name: "union"
+    description: |
+      Returns the union of two optional lists of values.
+    overloads:
+      - id: "optional_type(list(Finding))_union_optional_type(list(Finding))"
+        examples:
+        - |
+            // Returns the union of the 'pii' sensitivity labels from the agent context
+            // and tool call. For findings with the same value, the aggregated finding will
+            // have the highest confidence score.
+            agent.context.sensitivityFindings("pii").union(tool.call.sensitivityFindings("pii"))
+        target:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: optional_type
+            params:
+              - type_name: list
+                params:
+                  - type_name: cel.expr.ai.Finding
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+      - id: "optional_type(list(Finding))_union_list(Finding)"
+        examples:
+        - |
+            // Returns the union of the 'pii' sensitivity labels from the agent context
+            // and tool call. For findings with the same value, the aggregated finding will
+            // have the highest confidence score.
+            agent.context.sensitivityFindings("pii").union([ai.finding("ssn", 0.5)])
+        - |
+            // Returns the union of the findings, picking the highest confidence score for findings
+            // with the same name.
+            optional.of([ai.finding("ssn", 0.6)]).union([ai.finding("ssn", 0.5)])
+                .hasAll([ai.finding("ssn", 0.6)])
+        target:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: list
+            params:
+              - type_name: cel.expr.ai.Finding
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+      - id: "list(Finding)_union_optional_type(list(Finding))"
+        examples:
+        - |
+            // Returns the union of the 'pii' sensitivity labels from the agent context
+            // and tool call. For findings with the same value, the aggregated finding will
+            // have the highest confidence score.
+            [ai.finding("ssn", 0.5)].union(tool.call.sensitivityLabel("pii"))
+        target:
+          type_name: list
+          params:
+            - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: optional_type
+            params:
+              - type_name: list
+                params:
+                  - type_name: cel.expr.ai.Finding
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+      - id: "list(Finding)_union_list(Finding)"
+        examples:
+        - |
+            // Returns the union of the 'pii' sensitivity labels from the agent context
+            // and tool call. For findings with the same value, the aggregated finding will
+            // have the highest confidence score.
+            [ai.finding("ssn", 0.5)].union([ai.finding("phone_number", 0.75)])
+        target:
+          type_name: list
+          params:
+            - type_name: cel.expr.ai.Finding
+        args:
+          - type_name: list
+            params:
+              - type_name: cel.expr.ai.Finding
+        return:
+          type_name: list
+          params:
+            - type_name: cel.expr.ai.Finding
+
+  - name: "threatFindings"
+    description: |
+      Returns a list of potential threads associated with the input.
+    overloads:
+      - id: "AgentContext_threatFindings"
+        examples:
+          - |
+              // Returns the potential threats associated with the agent context which includes
+              // the agent prompt, history, and current input.
+              //
+              // The operation return true if any of the specified threats are present with
+              // confidence level above 0.5.
+              agent.context.threatFindings().hasAll(["injection", "jailbreak", "malicious_uri"])
+        target:
+          type_name: cel.expr.ai.AgentContext
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+      - id: "ToolCall_threatFindings"
+        examples:
+          - |
+              // Returns the potential threats associated with the agent context which includes
+              // the agent prompt, history, and current input.
+              //
+              // The operation return true if any of the specified threats are present with
+              // confidence level above 0.5.
+              tool.call.threatFindings().hasAll(["injection", "jailbreak", "malicious_uri"])
+        target:
+          type_name: cel.expr.ai.ToolCall
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+      - id: "AgentMessage_threatFindings"
+        examples:
+          - |
+              // Returns the potential threats associated with the agent message.
+              //
+              // The operation return true if any of the specified threats are present with
+              // confidence level above 0.5.
+              agent.input.threatFindings().hasAll(["injection", "jailbreak", "malicious_uri"])
+          - |
+              // Returns the potential threats associated with the agent output.
+              //
+              // The operation return true if any of the specified threats are present with
+              // confidence level above 0.5.
+              agent.output.threatFindings().hasAll(["injection", "jailbreak", "malicious_uri"])
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+      - id: "AgentMessageSet_threatFindings"
+        examples:
+          - |
+              // Returns the potential threats associated with the agent message set.
+              //
+              // The operation return true if any of the specified threats are present with
+              // confidence level above 0.5.
+              agent.history.threatFindings().hasAll(["injection", "jailbreak", "malicious_uri"])
+          - |
+              // Returns the potential threats associated with the user messages within 5 minutes.
+              //
+              // The operation return true if any of the specified threats are present with
+              // confidence level above 0.5.
+              agent.history
+                  .after(now - duration('5m'))
+                  .threatFindings().hasAll(["injection", "jailbreak", "malicious_uri"])
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+  - name: "safetyFindings"
+    description: |
+      Returns a list of potential safety labels associated with the input.
+    overloads:
+      - id: "AgentContext_safetyFindings_string"
+        examples:
+          - |
+              // Returns true if the agent context has the hate_speech and sexually_explicit
+              // findings confidence level above 0.5.
+              agent.context.safetyFindings("responsible_ai").hasAll(["hate_speech", "sexually_explicit"])
+          - |
+              // Returns true if the agent context has a violence label with high confidence.
+              agent.context.safetyFindings("responsible_ai").hasAll([ai.finding("violence", 0.9)])
+          - |
+              // Returns true if the agent context has child safety and abuse findings
+              // with even low confidence.
+              agent.context.safetyFindings("child_safety").hasValue()
+        target:
+          type_name: cel.expr.ai.AgentContext
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+      - id: "ToolCall_safetyFindings_string"
+        examples:
+          - |
+              // Returns true if the tool call has the hate_speech and sexually_explicit
+              // findings with confidence level above 0.5.
+              tool.call.safetyFindings("responsible_ai").hasAll(["hate_speech", "sexually_explicit"])
+          - |
+              // Returns true if the tool call has a violence label with high confidence.
+              tool.call.safetyFindings("responsible_ai").hasAll([ai.finding("violence", 0.9)])
+          - |
+              // Returns true if the tool call has child safety and abuse findings
+              // with even low confidence.
+              tool.call.safetyFindings("child_safety").hasValue()
+        target:
+          type_name: cel.expr.ai.ToolCall
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+      - id: "AgentMessage_safetyFindings_string"
+        examples:
+          - |
+              // Returns true if the message has the hate_speech and sexually_explicit
+              // findings with confidence level above 0.5.
+              agent.input.safetyFindings("responsible_ai")
+                  .hasAll(["hate_speech", "sexually_explicit"])
+          - |
+              // Returns true if the output has the hate_speech and sexually_explicit
+              // findings with confidence level above 0.5.
+              agent.output.safetyFindings("responsible_ai")
+                  .hasAll(["hate_speech", "sexually_explicit"])
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+      - id: "AgentMessageSet_safetyFindings_string"
+        examples:
+          - |
+              // Returns true if the message set has the hate_speech and sexually_explicit
+              // findings with confidence level above 0.5.
+              agent.history.safetyFindings("responsible_ai").hasAll(["hate_speech", "sexually_explicit"])
+          - |
+              // Returns true if the user messages within 5 minutes have a violence label with
+              // high confidence.
+              agent.history
+                  .role("user").after(now - duration('5m'))
+                  .safetyFindings("responsible_ai").hasAll([ai.finding("violence", 0.9)])
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        args:
+          - type_name: string
+        return:
+          type_name: optional_type
+          params:
+            - type_name: list
+              params:
+                - type_name: cel.expr.ai.Finding
+
+  - name: "role"
+    description: |
+      Adds a constraint to the AgentMessageSet to match messages from the specified role, either
+      'user' or 'agent'.
+    overloads:
+      - id: "AgentMessageSet_role_string"
+        examples:
+          - |
+              // Filters the history to only include messages from the agent.
+              agent.history.resultType("json").role("agent")
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        args:
+          - type_name: string
+        return:
+          type_name:  cel.expr.ai.AgentMessageSet
+
+  - name: "toolCalls"
+    description: |
+      Adds a constraint to the AgentMessageSet to match messages with a tool call that matches the
+      given name.
+    overloads:
+      - id: "AgentMessageSet_toolCalls_string"
+        examples:
+          - |
+              // Returns a filter that matches messages with the tool_call field set
+              // where the call name matches the given name.
+              agent.history.role("agent").toolCalls("get_weather")
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        args:
+          - type_name: string
+        return:
+          type_name:  cel.expr.ai.AgentMessageSet
+
+      - id: "AgentMessage_toolCalls_string"
+        examples:
+          - |
+              // Returns a filter that matches message parts where the tool call field is set
+              // and the call name matches the given name.
+              agent.output.toolCalls("get_weather")
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        args:
+          - type_name: string
+        return:
+          type_name:  cel.expr.ai.AgentMessageSet
+
+  - name: "resultType"
+    description: |
+      Adds a constraint to the AgentMessageSet to match messages with a tool call result of the given
+      type, such as 'json' or 'text'.
+    overloads:
+      - id: "AgentMessageSet_resultType_string"
+        examples:
+          - |
+              // Returns a filter that matches messages where the content type or tool call
+              // result type is 'json'.
+              agent.history.role("agent").resultType("json")
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        args:
+          - type_name: string
+        return:
+          type_name:  cel.expr.ai.AgentMessageSet
+
+      - id: "AgentMessage_resultType_string"
+        examples:
+          - |
+              // Returns a filter that matches message parts where the content type or tool call
+              // result type is 'json'.
+              agent.output.resultType("json")
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        args:
+          - type_name: string
+        return:
+          type_name:  cel.expr.ai.AgentMessageSet
+
+  - name: "before"
+    description: |
+      Adds a constraint to the AgentMessageSet to match messages with a timestamp less than or equal
+      to than the given timestamp.
+    overloads:
+      - id: "AgentMessageSet_before_timestamp"
+        examples:
+          - |
+              // Returns a filter that matches messages with a timestamp before the given value.
+              agent.history.before(timestamp("2025-01-01T00:00:00Z"))
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        args:
+          - type_name: google.protobuf.Timestamp
+        return:
+          type_name: cel.expr.ai.AgentMessageSet
+
+      - id: "AgentMessage_before_timestamp"
+        examples:
+          - |
+              // Returns a filter that matches message parts before the given timestamp.
+              agent.output.before(timestamp("2025-01-01T00:00:00Z"))
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        args:
+          - type_name: google.protobuf.Timestamp
+        return:
+          type_name: cel.expr.ai.AgentMessageSet
+
+  - name: "after"
+    description: |
+      Adds a constraint to the AgentMessageSet to match messages with a timestamp greater than or
+      equal to the given timestamp.
+    overloads:
+      - id: "AgentMessageSet_after_timestamp"
+        examples:
+          - |
+              // Limits the history to messages after the given timestamp.
+              agent.history.after(timestamp("2025-01-01T00:00:00Z"))
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        args:
+          - type_name: google.protobuf.Timestamp
+        return:
+          type_name: cel.expr.ai.AgentMessageSet
+
+      - id: "AgentMessage_after_timestamp"
+        examples:
+          - |
+              // Returns a filter that matches message parts after the given timestamp.
+              agent.output.after(timestamp("2025-01-01T00:00:00Z"))
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        args:
+          - type_name: google.protobuf.Timestamp
+        return:
+          type_name: cel.expr.ai.AgentMessageSet
+
+  - name: "prompts"
+    description: |
+      Returns a filtered view of message parts corresponding to user prompts.
+    overloads:
+      - id: "AgentMessageSet_prompts"
+        examples:
+          - |
+              // Returns a filter that matches messages that are prompts.
+              agent.history.role("user").prompts()
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        return:
+          type_name: cel.expr.ai.AgentMessageSet
+      - id: "AgentMessage_prompts"
+        examples:
+          - |
+              // Returns a filter that matches messages that are prompts.
+              agent.input.prompts()
+        target:
+          type_name: cel.expr.ai.AgentMessage
+        return:
+          type_name: cel.expr.ai.AgentMessageSet
+
+  - name: "parts"
+    description: |
+      Returns the ordered list of AgentMessage.Part entries for all messages in the message set.
+    overloads:
+      - id: "AgentMessageSet_parts"
+        examples:
+          - |
+              // Returns the ordered list of message parts in the message set.
+              agent.history.parts()
+        target:
+          type_name: cel.expr.ai.AgentMessageSet
+        return:
+          type_name: list
+          params:
+            - type_name: cel.expr.ai.AgentMessage.Part
+
+  - name: "spec"
+    description: |
+      Returns the specification for the tool.
+    overloads:
+      - id: "ToolCall_spec"
+        examples:
+          - |
+            // Returns true if the tool call was defined with metadata indicating that
+            // the tool posseses the lethal trifecta: open world, destructive, and produces
+            // untrusted output.
+            agent.input.parts.exists(part,
+                has(part.tool_call) &&
+                !part.tool_call.spec().annotations.output_trust.level in [
+                  'trusted', 'trusted_1p'
+                ])
+        target:
+          type_name: cel.expr.ai.ToolCall
+        return:
+          type_name: cel.expr.ai.Tool
+
+  - name: "asType"
+    description: |
+      Casts the message part to the specified type.
+    overloads:
+      - id: "ContentPart_asType_type(T)"
+        examples:
+          - |
+            // Returns the message part as type bigquery.QueryRequest
+            agent.input.parts[0].asType(bigquery.QueryRequest)
+        target:
+          type_name: cel.expr.ai.ContentPart
+        args:
+          - type_name: type
+            params:
+              - type_name: T
+                is_type_param: true
+        return:
+          type_name: T
+          is_type_param: true
