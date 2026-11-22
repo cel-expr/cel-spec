@@ -45,6 +45,17 @@ http_archive(
     urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.5.zip"],
 )
 
+# grpc
+http_archive(
+    name = "com_github_grpc_grpc",
+    sha256 = "916f88a34f06b56432611aaa8c55befee96d0a7b7d7457733b9deeacbc016f99",
+    # Implies go_sdk version = "1.18".
+    # https://github.com/grpc/grpc/blob/v1.59.1/bazel/grpc_extra_deps.bzl#L57
+    # Update this if the go_sdk version has changed in another gRPC release!
+    strip_prefix = "grpc-1.59.1",
+    urls = ["https://github.com/grpc/grpc/archive/v1.59.1.tar.gz"],
+)
+
 # googletest
 http_archive(
      name = "com_google_googletest",
@@ -135,10 +146,22 @@ go_repository(
     version = "v0.3.2",
 )
 
+# gRPC deps must be loaded and called in this order.
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+grpc_deps()
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+grpc_extra_deps()
+
 # Run the dependencies at the end.  These will silently try to import some
 # of the above repositories but at different versions, so ours must come first.
 go_rules_dependencies()
-go_register_toolchains(version = "1.19.1")
+# Calling go_register_toolchains twice with "version" argument results in error:
+# > go_register_toolchains: version set after go sdk rule declared (go_sdk)
+# grpc_extra_deps() already calls it with the version set explicitly, so we can't specify
+# the version below. Until this is fixed, we'd have inherit go_sdk from grpc_extra_deps().
+# See http_archive for com_github_grpc_grpc for the current implied version.
+# TODO(sergiitk): remove when https://github.com/grpc/grpc/issues/31182 is solved.
+go_register_toolchains()
 gazelle_dependencies()
 rules_proto_dependencies()
 rules_proto_toolchains()
