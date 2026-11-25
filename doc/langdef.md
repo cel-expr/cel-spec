@@ -1210,11 +1210,13 @@ how and when certain types will overflow:
    as a string: ["0001-01-01T00:00:00Z", "9999-12-31T23:59:59.999999999Z"]
    (`seconds` in `[-62135596800, 253402300799]` and `nanos` in
    `[0, 999999999]`).
-*  Double to int conversions are limited to (minInt, maxInt) non-inclusive.
-
-Note, that whether the minimum or maximum integer value will roundtrip successfully
-int -> double -> int can be compiler dependent which is the motivation for the
-conservative round-tripping behavior.
+*  Double to int conversions drop the fractional part and raise an error if the
+   result is outside the int range. `int(-9223372036854775808.0)` is the
+   minimum int, since that double is exactly -2^63, while
+   `int(9223372036854775807.0)` is an error, since that literal is the double
+   2^63.
+*  Double to uint conversions raise an error for any negative input, even one
+   that would truncate to zero, such as `uint(-0.5)`. `-0.0` is not negative.
 
 ### Timezones
 
@@ -2236,8 +2238,8 @@ type("hello") // string
 
 *   `uint(uint) -> uint` (identity)
 *   `uint(int) -> uint` (type conversion)
-*   `uint(double) -> uint` (type conversion, rounds toward zero, errors if out
-    of range)
+*   `uint(double) -> uint` (type conversion, rounds toward zero, errors if
+    negative or out of range)
 *   `uint(string) -> uint` (type conversion)
 
 **Examples:**
